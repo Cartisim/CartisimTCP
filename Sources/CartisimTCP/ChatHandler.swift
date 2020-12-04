@@ -1,7 +1,5 @@
 import Foundation
 import NIO
-import Fluent
-import Vapor
 
 /// This `ChannelInboundHandler` demonstrates a few things:
 ///   * Synchronisation between `EventLoop`s.

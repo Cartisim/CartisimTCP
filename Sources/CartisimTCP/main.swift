@@ -1,6 +1,6 @@
-#if os(Linux)
-srand(UInt32(time(nil)))
-#endif
+//#if os(Linux)
+//srand(UInt32(time(nil)))
+//#endif
 
 
 let server = TCPServer(host: "localhost", port: 8081)

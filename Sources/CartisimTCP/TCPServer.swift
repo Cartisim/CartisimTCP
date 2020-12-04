@@ -1,7 +1,7 @@
 import Foundation
 import NIO
 import Dispatch
-import NIOSSL
+//import NIOSSL
 
 enum TCPError: Error {
     case invalidHost
@@ -43,27 +43,27 @@ public class TCPServer {
     
     private var serverBootstrap: ServerBootstrap {
         
-        let basePath = FileManager().currentDirectoryPath
-        let certPath = basePath + "/cert.pem"
-        let keyPath = basePath + "/key.pem"
-        print(certPath, keyPath)
-        let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
-            .map { NIOSSLCertificateSource.certificate($0) }
-        let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
+//        let basePath = FileManager().currentDirectoryPath
+//        let certPath = basePath + "/cert.pem"
+//        let keyPath = basePath + "/key.pem"
+//        print(certPath, keyPath)
+//        let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
+//            .map { NIOSSLCertificateSource.certificate($0) }
+//        let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
+//
         
-        
-        let sslContext = try? NIOSSLContext(configuration: tls)
-        let handler = NIOSSLServerHandler(context: sslContext!)
+//        let sslContext = try? NIOSSLContext(configuration: tls)
+//        let handler = NIOSSLServerHandler(context: sslContext!)
         return ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelInitializer { channel in
-                channel.pipeline.addHandler(handler).flatMap { v in
+//                channel.pipeline.addHandler(handler).flatMap { v in
                     channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
                         channel.pipeline.addHandler(ChatHandler())
                     }
-                }
+//                }
                 
             }
             .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
