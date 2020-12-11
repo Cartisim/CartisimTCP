@@ -3,16 +3,7 @@ import NIO
 import Dispatch
 import NIOSSL
 
-enum TCPError: Error {
-    case invalidHost
-    case invalidPort
-}
-
-
 public class TCPServer {
-    // We need to share the same ChatHandler for all as it keeps track of all
-    // connected clients. For this ChatHandler MUST be thread-safe!
-    
     
     private var host: String?
     private var port: Int?
@@ -24,53 +15,58 @@ public class TCPServer {
     
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     
-    //    private var serverBootstrap: ServerBootstrap {
-    //        let chatHandler = ChatHandler()
-    //        return ServerBootstrap(group: group)
-    //            // Specify backlog and enable SO_REUSEADDR for the server itself
-    //            .serverChannelOption(ChannelOptions.backlog, value: 256)
-    //            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-    //
-    //            // Set the handlers that are applied to the accepted Channels
-    //            .childChannelInitializer { channel in
-    //                // Add handler that will buffer data until a \n is received
-    //                channel.pipeline.addHandler(ByteToMessageHandler(LineDelimiterCodec())).flatMap { v in
-    //                    // It's important we use the same handler for all accepted channels. The ChatHandler is thread-safe!
-    //                    channel.pipeline.addHandler(chatHandler)
-    //                }
-    //            }
-    //    }
-    
     private var serverBootstrap: ServerBootstrap {
-        
-        let basePath = FileManager().currentDirectoryPath
-        let certPath = basePath + "/cert.pem"
-        let keyPath = basePath + "/key.pem"
-        print(certPath, keyPath)
-        let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
-            .map { NIOSSLCertificateSource.certificate($0) }
-        let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
-
-        
-        let sslContext = try? NIOSSLContext(configuration: tls)
-        let handler = NIOSSLServerHandler(context: sslContext!)
+        #if DEBUG || LOCAL
         return ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            
+            
+            .childChannelInitializer { channel in
+                channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
+                    channel.pipeline.addHandler(ChatHandler())
+                }
+            }
+            
+            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
+            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+        #else
+        let basePath = FileManager().currentDirectoryPath
+        let certPath = basePath + "/cert.pem"
+        let keyPath = basePath + "/privkey.pem"
+        print(certPath, keyPath)
+        let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
+            .map { NIOSSLCertificateSource.certificate($0) }
+        let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
+        
+        
+        let sslContext = try? NIOSSLContext(configuration: tls)
+        let handler = NIOSSLServerHandler(context: sslContext!)
+        
+        return ServerBootstrap(group: group)
+            .serverChannelOption(ChannelOptions.backlog, value: 256)
+            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            
+            
             .childChannelInitializer { channel in
                 channel.pipeline.addHandler(handler).flatMap { v in
                     channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
                         channel.pipeline.addHandler(ChatHandler())
                     }
                 }
-                
             }
+            
             .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
             .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+        #endif
     }
+    
     
     func shutdown() {
         do {

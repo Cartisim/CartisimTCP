@@ -1,5 +1,6 @@
 import Foundation
 import NIO
+import AsyncHTTPClient
 
 /// This `ChannelInboundHandler` demonstrates a few things:
 ///   * Synchronisation between `EventLoop`s.
@@ -14,20 +15,23 @@ import NIO
 struct OurDate: Decodable {
     let ourString: String
 }
+
 final class ChatHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
-    
-    // All access to channels is guarded by channelsSyncQueue.
+
     private let channelsSyncQueue = DispatchQueue(label: "channelsQueue")
     private var channels: [ObjectIdentifier: Channel] = [:]
     
+    
+    
+    
+    
     public func channelActive(context: ChannelHandlerContext) {
+        print("ACTIVE")
         let remoteAddress = context.remoteAddress!
         let channel = context.channel
-        print(channel,remoteAddress, "ACTIVE")
         self.channelsSyncQueue.async {
-            // broadcast the message to all the connected clients except the one that just became active.
             self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
             
             self.channels[ObjectIdentifier(channel)] = channel
@@ -38,49 +42,85 @@ final class ChatHandler: ChannelInboundHandler {
         context.writeAndFlush(self.wrapOutboundOut(buffer), promise: nil)
     }
     
+    
+    
+    
+    
     public func channelInactive(context: ChannelHandlerContext) {
         let channel = context.channel
         print(channel, "INACTIVE")
         self.channelsSyncQueue.async {
             if self.channels.removeValue(forKey: ObjectIdentifier(channel)) != nil {
-                // Broadcast the message to all the connected clients except the one that just was disconnected.
                 self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - Client disconnected\n")
             }
         }
     }
     
+
+    
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let id = ObjectIdentifier(context.channel)
         var read = self.unwrapInboundIn(data)
-        print(id, "ID")
-        // 64 should be good enough for the ipaddress
         var buffer = context.channel.allocator.buffer(capacity: read.readableBytes + 64)
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
-//        buffer.writeString("(\(context.remoteAddress!)) - ")
-//        buffer.writeBuffer(&read)
+        print(received, "Received On Post Message")
+        do {
+            
+            let decodedMessage = try JSONDecoder().decode(MessageResponse.self, from: buffer)
+            let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+            do{
+                var request = try HTTPClient.Request(url: "http://localhost:8080/api/postMessage/\(decodedMessage.sessionID)", method: .POST)
+                request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
+                request.headers.add(name: "Content-Type", value: "application/json")
+                request.headers.add(name: "Authorization", value: "Bearer \(decodedMessage.token)")
+                request.headers.add(name: "Connection", value: "keep-alive")
+                request.headers.add(name: "Content-Length", value: "")
+                request.headers.add(name: "Date", value: "\(Date())")
+                request.headers.add(name: "Server", value: "TCPCartisim")
+                request.headers.add(name: "content-security-policy", value: "default-src 'none'")
+                request.headers.add(name: "x-content-type-options", value: "nosniff")
+                request.headers.add(name: "x-frame-options", value: "DENY")
+                request.headers.add(name: "x-xss-protection", value: "1; mode=block")
+                
+                let encodedMessage = try JSONEncoder().encode(MessageRequest(avatar: decodedMessage.avatar ?? "No Avatar", contactID: decodedMessage.contactID, name: decodedMessage.name, message: decodedMessage.message, chatSessionID: decodedMessage.chatSessionID))
+                request.body = .data(encodedMessage)
+                
+                httpClient.execute(request: request)
+                    .whenComplete { result in
+                        switch result {
+                        case .failure(let error):
+                            print(error)
+                        case .success(let response):
+                            if response.status == .ok {
+                                //TODO:- Could write APN for new message alert
+                                print(response, "Response")
+                            } else {
+                                // handle remote error
+//                                send email to notify remote error
+                            }
+                        }
+                        try? httpClient.syncShutdown()
+                    }
+                
+            } catch {
+                print(error)
+            }
+        } catch {
+            print(error)
+        }
+        
         self.channelsSyncQueue.async {
-            // broadcast the message to all the connected clients except the one that wrote it.
-//            self.writeToAll(channels: self.channels.filter { id != $0.key }, buffer: buffer)
             self.writeToAll(channels: self.channels, buffer: buffer)
             
         }
-        
-        
-//        let app = Application()
-//        let req = Request(application: app, on: app.client.eventLoop)
-//        return req.client.post("", headers: ["":""]) { (res) in
-//            try req.content.encode(["data":"\(data)"], as: .json)
-//        }.transform(to: HTTPStatus.ok)
     }
+    
     func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }
+    
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
         print("error: ", error)
-        
-        // As we are not really interested getting notified on success or failure we just pass nil as promise to
-        // reduce allocations.
         context.close(promise: nil)
     }
     
@@ -93,5 +133,3 @@ final class ChatHandler: ChannelInboundHandler {
         channels.forEach { $0.value.writeAndFlush(buffer, promise: nil) }
     }
 }
-
-

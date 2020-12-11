@@ -3,7 +3,12 @@
 //#endif
 
 
-let server = TCPServer(host: "tcptest.cartisim.io", port: 8081)
+
+#if DEBUG || LOCAL
+let server = TCPServer(host: "localhost", port: 8081)
+#else
+let server = TCPServer(host: "tcptest.cartisin.io", port: 8081)
+#endif
 do {
     print("Server is running")
     try server.run()
