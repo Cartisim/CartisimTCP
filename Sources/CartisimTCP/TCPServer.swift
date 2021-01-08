@@ -137,7 +137,7 @@ public class TCPServer {
 
 fileprivate func fetchKeys() throws {
     let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
-    var request = try HTTPClient.Request(url: "http://localhost:8080/api/fetchKeys", method: .GET)
+    var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
     request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
     request.headers.add(name: "Content-Type", value: "application/json")
     request.headers.add(name: "Authorization", value: "Bearer")
@@ -176,41 +176,9 @@ fileprivate func fetchKeys() throws {
 
 class Keys: Codable {
     var keychainEncryptionKey: String?
-    var refreshNetworkKey: String?
-    var userEmailKey: String?
-    var userPasswordKey: String?
-    var userIDKey: String?
-    var usernameKey: String?
-    var orderIDKey: String?
-    var userObjectKey: String?
-    var siwaAuthKey: String?
-    var tokensKey: String?
-    var subscriptionStatusKey: String?
-    var isAdminKey: String?
-    var isContractorKey: String?
-    var keychainServiceID: String?
-    var weeklyProductKey: String?
-    var monthlyProductKey: String?
-    var yearlyProductKey: String?
     
-    init(keychainEncryptionKey: String? = "", refreshNetworkKey: String? = "", userEmailKey: String? = "", userPasswordKey: String? = "", userObjectKey: String? = "", userIDKey: String? = "", usernameKey: String? = "", orderIDKey: String? = "", siwaAuthKey: String? = "", subscriptionStatusKey: String? = "", tokensKey: String? = "",  isAdminKey: String? = "",  isContractorKey: String? = "",  keychainServiceID: String? = "", weeklyProductKey: String? = "", monthlyProductKey: String? = "", yearlyProductKey: String? = "") {
-        self.keychainServiceID = keychainServiceID
-        self.refreshNetworkKey = refreshNetworkKey
-        self.userEmailKey = userEmailKey
-        self.userPasswordKey = userPasswordKey
-        self.userObjectKey = userObjectKey
-        self.userIDKey = userIDKey
-        self.usernameKey = usernameKey
-        self.orderIDKey = orderIDKey
-        self.siwaAuthKey = siwaAuthKey
-        self.subscriptionStatusKey = subscriptionStatusKey
-        self.tokensKey = tokensKey
-        self.isAdminKey = isAdminKey
-        self.isContractorKey = isContractorKey
-        self.keychainServiceID = keychainServiceID
-        self.weeklyProductKey = weeklyProductKey
-        self.monthlyProductKey = monthlyProductKey
-        self.yearlyProductKey = yearlyProductKey
+    init(keychainEncryptionKey: String? = "") {
+        self.keychainEncryptionKey = keychainEncryptionKey
     }
 }
 

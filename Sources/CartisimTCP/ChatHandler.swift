@@ -63,7 +63,7 @@ final class ChatHandler: ChannelInboundHandler {
             print(decryptedObject, "DO")
             let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
             do{
-                var request = try HTTPClient.Request(url: "http://localhost:8080/api/postMessage/\(decryptedObject.sessionID)", method: .POST)
+                var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
                 request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
                 request.headers.add(name: "Content-Type", value: "application/json")
                 request.headers.add(name: "Authorization", value: "Bearer \(decryptedObject.token)")
