@@ -1,6 +1,8 @@
 import Foundation
 import NIO
 import AsyncHTTPClient
+import CryptoKit
+
 
 /// This `ChannelInboundHandler` demonstrates a few things:
 ///   * Synchronisation between `EventLoop`s.
@@ -29,22 +31,11 @@ final class ChatHandler: ChannelInboundHandler {
     
     public func channelActive(context: ChannelHandlerContext) {
         print("ACTIVE")
-        let remoteAddress = context.remoteAddress!
         let channel = context.channel
         self.channelsSyncQueue.async {
-            self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
-            
             self.channels[ObjectIdentifier(channel)] = channel
         }
-        
-        var buffer = channel.allocator.buffer(capacity: 64)
-        buffer.writeString("(ChatServer) - Welcome to: \(context.localAddress!)\n")
-        context.writeAndFlush(self.wrapOutboundOut(buffer), promise: nil)
     }
-    
-    
-    
-    
     
     public func channelInactive(context: ChannelHandlerContext) {
         let channel = context.channel
@@ -66,13 +57,16 @@ final class ChatHandler: ChannelInboundHandler {
         print(received, "Received On Post Message")
         do {
             
-            let decodedMessage = try JSONDecoder().decode(MessageResponse.self, from: buffer)
+            let objects = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
+            print(objects, "OBJECTS")
+            guard let decryptedObject = self.decryptableResponse(MessageResponse.self, string: objects.encryptedObject) else {return}
+            print(decryptedObject, "DO")
             let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
             do{
-                var request = try HTTPClient.Request(url: "http://localhost:8080/api/postMessage/\(decodedMessage.sessionID)", method: .POST)
+                var request = try HTTPClient.Request(url: "http://localhost:8080/api/postMessage/\(decryptedObject.sessionID)", method: .POST)
                 request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
                 request.headers.add(name: "Content-Type", value: "application/json")
-                request.headers.add(name: "Authorization", value: "Bearer \(decodedMessage.token)")
+                request.headers.add(name: "Authorization", value: "Bearer \(decryptedObject.token)")
                 request.headers.add(name: "Connection", value: "keep-alive")
                 request.headers.add(name: "Content-Length", value: "")
                 request.headers.add(name: "Date", value: "\(Date())")
@@ -81,9 +75,9 @@ final class ChatHandler: ChannelInboundHandler {
                 request.headers.add(name: "x-content-type-options", value: "nosniff")
                 request.headers.add(name: "x-frame-options", value: "DENY")
                 request.headers.add(name: "x-xss-protection", value: "1; mode=block")
-                
-                let encodedMessage = try JSONEncoder().encode(MessageRequest(avatar: decodedMessage.avatar ?? "No Avatar", contactID: decodedMessage.contactID, name: decodedMessage.name, message: decodedMessage.message, chatSessionID: decodedMessage.chatSessionID))
-                request.body = .data(encodedMessage)
+
+                let body = try? JSONEncoder().encode(objects)
+                request.body = .data(body!)
                 
                 httpClient.execute(request: request)
                     .whenComplete { result in
@@ -92,8 +86,11 @@ final class ChatHandler: ChannelInboundHandler {
                             print(error)
                         case .success(let response):
                             if response.status == .ok {
-                                //TODO:- Could write APN for new message alert
                                 print(response, "Response")
+                                self.channelsSyncQueue.async {
+                                    guard let data = response.body else {return}
+                                    self.writeToAll(channels: self.channels, buffer: data)
+                                }
                             } else {
                                 // handle remote error
 //                                send email to notify remote error
@@ -107,11 +104,6 @@ final class ChatHandler: ChannelInboundHandler {
             }
         } catch {
             print(error)
-        }
-        
-        self.channelsSyncQueue.async {
-            self.writeToAll(channels: self.channels, buffer: buffer)
-            
         }
     }
     
@@ -131,5 +123,32 @@ final class ChatHandler: ChannelInboundHandler {
     
     private func writeToAll(channels: [ObjectIdentifier: Channel], buffer: ByteBuffer) {
         channels.forEach { $0.value.writeAndFlush(buffer, promise: nil) }
+    }
+    
+    func encryptableBody<T: Codable>(body: T) -> EncryptedAuthRequest {
+        let key = CartisimCrypto.userInfoKey(KeyData.shared.keychainEncryptionKey)
+        let bodyData = try? CartisimCrypto.encryptCodableObject(body, usingKey: key)
+        let encryptedRequest = EncryptedAuthRequest(encryptedObject: bodyData!)
+        return encryptedRequest
+    }
+
+    func decryptableResponse<T: Codable>(_ body: T.Type, string: String) -> T? {
+        let key = CartisimCrypto.userInfoKey(KeyData.shared.keychainEncryptionKey)
+        do {
+            let object = try CartisimCrypto.decryptStringToCodableObject(body, from: string, usingKey: key)
+            return object
+        } catch {
+            print(error)
+        }
+        return nil
+    }
+}
+
+
+struct EncryptedAuthRequest: Codable {
+    var encryptedObject: String
+    
+    func requestEncryptedAuthRequestObject() -> EncryptedAuthRequest {
+        return EncryptedAuthRequest(encryptedObject: self.encryptedObject)
     }
 }

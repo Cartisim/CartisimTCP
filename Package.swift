@@ -14,6 +14,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.10.1"),
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.2.2"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "1.1.3")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -24,8 +25,8 @@ let package = Package(
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOSSL", package: "swift-nio-ssl"),
-                .product(name: "AsyncHTTPClient", package: "async-http-client")
-                
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+//                .product(name: "swift-crypto", package: "swift-crypto"),
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of

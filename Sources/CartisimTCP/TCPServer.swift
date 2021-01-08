@@ -2,6 +2,7 @@ import Foundation
 import NIO
 import Dispatch
 import NIOSSL
+import AsyncHTTPClient
 
 public class TCPServer {
     
@@ -128,8 +129,102 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-        
+        try? fetchKeys()
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
+    }
+}
+
+fileprivate func fetchKeys() throws {
+    let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+    var request = try HTTPClient.Request(url: "http://localhost:8080/api/fetchKeys", method: .GET)
+    request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
+    request.headers.add(name: "Content-Type", value: "application/json")
+    request.headers.add(name: "Authorization", value: "Bearer")
+    request.headers.add(name: "Connection", value: "keep-alive")
+    request.headers.add(name: "Content-Length", value: "")
+    request.headers.add(name: "Date", value: "\(Date())")
+    request.headers.add(name: "Server", value: "TCPCartisim")
+    request.headers.add(name: "content-security-policy", value: "default-src 'none'")
+    request.headers.add(name: "x-content-type-options", value: "nosniff")
+    request.headers.add(name: "x-frame-options", value: "DENY")
+    request.headers.add(name: "x-xss-protection", value: "1; mode=block")
+    httpClient.execute(request: request)
+
+        .whenComplete { result in
+        switch result {
+        case .failure(let error):
+            // process error
+        print(error)
+        case .success(let response):
+            if response.status == .ok {
+                do {
+                guard let responseData = response.body else {return}
+                let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+                    KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
+                } catch {
+                    print(error, "ERROR")
+                }
+            } else {
+                // handle remote error
+            }
+        }
+            try? httpClient.syncShutdown()
+    }
+}
+
+
+class Keys: Codable {
+    var keychainEncryptionKey: String?
+    var refreshNetworkKey: String?
+    var userEmailKey: String?
+    var userPasswordKey: String?
+    var userIDKey: String?
+    var usernameKey: String?
+    var orderIDKey: String?
+    var userObjectKey: String?
+    var siwaAuthKey: String?
+    var tokensKey: String?
+    var subscriptionStatusKey: String?
+    var isAdminKey: String?
+    var isContractorKey: String?
+    var keychainServiceID: String?
+    var weeklyProductKey: String?
+    var monthlyProductKey: String?
+    var yearlyProductKey: String?
+    
+    init(keychainEncryptionKey: String? = "", refreshNetworkKey: String? = "", userEmailKey: String? = "", userPasswordKey: String? = "", userObjectKey: String? = "", userIDKey: String? = "", usernameKey: String? = "", orderIDKey: String? = "", siwaAuthKey: String? = "", subscriptionStatusKey: String? = "", tokensKey: String? = "",  isAdminKey: String? = "",  isContractorKey: String? = "",  keychainServiceID: String? = "", weeklyProductKey: String? = "", monthlyProductKey: String? = "", yearlyProductKey: String? = "") {
+        self.keychainServiceID = keychainServiceID
+        self.refreshNetworkKey = refreshNetworkKey
+        self.userEmailKey = userEmailKey
+        self.userPasswordKey = userPasswordKey
+        self.userObjectKey = userObjectKey
+        self.userIDKey = userIDKey
+        self.usernameKey = usernameKey
+        self.orderIDKey = orderIDKey
+        self.siwaAuthKey = siwaAuthKey
+        self.subscriptionStatusKey = subscriptionStatusKey
+        self.tokensKey = tokensKey
+        self.isAdminKey = isAdminKey
+        self.isContractorKey = isContractorKey
+        self.keychainServiceID = keychainServiceID
+        self.weeklyProductKey = weeklyProductKey
+        self.monthlyProductKey = monthlyProductKey
+        self.yearlyProductKey = yearlyProductKey
+    }
+}
+
+struct KeyData {
+    static var shared = KeyData()
+    
+    fileprivate var _keychainEncryptionKey: String = ""
+    
+    var keychainEncryptionKey: String {
+        get {
+            return _keychainEncryptionKey
+        }
+        set {
+            _keychainEncryptionKey = newValue
+        }
     }
 }
