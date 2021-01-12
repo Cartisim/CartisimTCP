@@ -181,7 +181,7 @@ fileprivate func fetchKeys() throws {
                 }
             }
             print("5")
-            try? httpClient.syncShutdown()
+//            try? httpClient.syncShutdown()
         }
 }
 
