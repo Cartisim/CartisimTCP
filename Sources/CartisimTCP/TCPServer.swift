@@ -59,28 +59,31 @@ public class TCPServer {
             .map { NIOSSLCertificateSource.certificate($0) }
         let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
         
-        
-        let sslContext = try NIOSSLContext(configuration: tls)
-        let handler = NIOSSLServerHandler(context: sslContext!)
-        
-        return ServerBootstrap(group: group)
-            .serverChannelOption(ChannelOptions.backlog, value: 256)
-            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        do {
+            let sslContext = try NIOSSLContext(configuration: tls)
+            let handler = NIOSSLServerHandler(context: sslContext)
             
-            
-            .childChannelInitializer { channel in
-                channel.pipeline.addHandler(handler).flatMap { v in
-                    channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-                        channel.pipeline.addHandler(ChatHandler())
+            return ServerBootstrap(group: group)
+                .serverChannelOption(ChannelOptions.backlog, value: 256)
+                .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+                .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+                
+                
+                .childChannelInitializer { channel in
+                    channel.pipeline.addHandler(handler).flatMap { v in
+                        channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
+                            channel.pipeline.addHandler(ChatHandler())
+                        }
                     }
                 }
-            }
-            
-            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
-            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+                
+                .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
+                .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+                .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+                .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+        } catch {
+            print(error, "Error Configuring SSL")
+        }
         #endif
     }
     
