@@ -133,7 +133,11 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-        try? fetchKeys()
+        do {
+            try fetchKeys()
+        } catch {
+            print(error, "Error")
+        }
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
 
@@ -141,7 +145,6 @@ public class TCPServer {
 }
 
 fileprivate func fetchKeys() throws {
-    print("1")
     let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
     var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
     request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
@@ -155,18 +158,12 @@ fileprivate func fetchKeys() throws {
     request.headers.add(name: "x-content-type-options", value: "nosniff")
     request.headers.add(name: "x-frame-options", value: "DENY")
     request.headers.add(name: "x-xss-protection", value: "1; mode=block")
-    print("2")
     httpClient.execute(request: request)
-        
         .whenComplete { result in
             switch result {
             case .failure(let error):
-                // process error
-                print("3")
-                print(error)
+                print(error, "FAILURE ERROR")
             case .success(let response):
-                print(response)
-                print("4")
                 if response.status == .ok {
                     do {
                         guard let responseData = response.body else {return}
@@ -177,10 +174,8 @@ fileprivate func fetchKeys() throws {
                     }
                 } else {
                     print(response.status, "Remote Error")
-                    // handle remote error
                 }
             }
-            print("5")
             do {
                 try httpClient.syncShutdown()
             } catch {
