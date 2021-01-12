@@ -96,13 +96,14 @@ public class TCPServer {
         let arg1 = arguments.dropFirst().first
         let arg2 = arguments.dropFirst(2).first
         
-        
+        print(arguments, "Arguments")
         enum BindTo {
             case ip(host: String, port: Int)
             case unixDomainSocket(path: String)
         }
         
         let bindTarget: BindTo
+       
         switch (arg1, arg1.flatMap(Int.init), arg2.flatMap(Int.init)) {
         case (.some(let h), _ , .some(let p)):
             /* we got two arguments, let's interpret that as host and port */
@@ -119,7 +120,7 @@ public class TCPServer {
         default:
             bindTarget = .ip(host: host, port: port)
         }
-        
+        print(bindTarget, "bindTarget")
         let channel = try { () -> Channel in
             switch bindTarget {
             case .ip(let host, let port):
@@ -128,7 +129,7 @@ public class TCPServer {
                 return try serverBootstrap.bind(unixDomainSocketPath: path).wait()
             }
         }()
-        
+        print(channel, "Channel")
         
         guard let localAddress = channel.localAddress else {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
