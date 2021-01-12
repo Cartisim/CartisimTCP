@@ -35,6 +35,22 @@ public class TCPServer {
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
             .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
         #else
+        return ServerBootstrap(group: group)
+            .serverChannelOption(ChannelOptions.backlog, value: 256)
+            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            
+            
+            .childChannelInitializer { channel in
+                channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
+                    channel.pipeline.addHandler(ChatHandler())
+                }
+            }
+            
+            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
+            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/cert.pem"
         let keyPath = basePath + "/privkey.pem"
@@ -44,7 +60,7 @@ public class TCPServer {
         let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
         
         
-        let sslContext = try? NIOSSLContext(configuration: tls)
+        let sslContext = try NIOSSLContext(configuration: tls)
         let handler = NIOSSLServerHandler(context: sslContext!)
         
         return ServerBootstrap(group: group)
@@ -150,27 +166,27 @@ fileprivate func fetchKeys() throws {
     request.headers.add(name: "x-frame-options", value: "DENY")
     request.headers.add(name: "x-xss-protection", value: "1; mode=block")
     httpClient.execute(request: request)
-
+        
         .whenComplete { result in
-        switch result {
-        case .failure(let error):
-            // process error
-        print(error)
-        case .success(let response):
-            if response.status == .ok {
-                do {
-                guard let responseData = response.body else {return}
-                let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-                    KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
-                } catch {
-                    print(error, "ERROR")
+            switch result {
+            case .failure(let error):
+                // process error
+                print(error)
+            case .success(let response):
+                if response.status == .ok {
+                    do {
+                        guard let responseData = response.body else {return}
+                        let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+                        KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
+                    } catch {
+                        print(error, "ERROR")
+                    }
+                } else {
+                    // handle remote error
                 }
-            } else {
-                // handle remote error
             }
-        }
             try? httpClient.syncShutdown()
-    }
+        }
 }
 
 
