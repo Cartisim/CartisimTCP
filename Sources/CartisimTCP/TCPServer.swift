@@ -90,6 +90,7 @@ public class TCPServer {
         guard let port = port else {
             throw TCPError.invalidPort
         }
+        print(host, port, "HOST&PORT")
         // First argument is the program path
         let arguments = CommandLine.arguments
         let arg1 = arguments.dropFirst().first
