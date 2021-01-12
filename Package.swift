@@ -26,7 +26,7 @@ let package = Package(
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOSSL", package: "swift-nio-ssl"),
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
-//                .product(name: "swift-crypto", package: "swift-crypto"),
+                .product(name: "Crypto", package: "swift-crypto"),
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of

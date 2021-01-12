@@ -4,7 +4,7 @@ import AsyncHTTPClient
 #if os(macOS)
 import CryptoKit
 #else
-import SwiftCrypto
+import Crypto
 #endif
 
 
