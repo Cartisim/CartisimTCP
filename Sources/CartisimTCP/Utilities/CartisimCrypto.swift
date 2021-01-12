@@ -1,4 +1,8 @@
+#if os(macOS)
 import CryptoKit
+#else
+import SwiftCrypto
+#endif
 import Foundation
 
 public class CartisimCrypto {

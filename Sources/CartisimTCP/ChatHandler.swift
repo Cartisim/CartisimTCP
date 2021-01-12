@@ -1,7 +1,11 @@
 import Foundation
 import NIO
 import AsyncHTTPClient
+#if os(macOS)
 import CryptoKit
+#else
+import SwiftCrypto
+#endif
 
 
 /// This `ChannelInboundHandler` demonstrates a few things:
