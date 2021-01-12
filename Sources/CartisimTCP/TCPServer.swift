@@ -133,18 +133,13 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-        do {
-            try fetchKeys()
-        } catch {
-            print(error, "Error")
-        }
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
 
     }
 }
 
-fileprivate func fetchKeys() throws {
+ func fetchKeys() throws {
     let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
     var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
     request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
