@@ -7,7 +7,7 @@
 #if DEBUG || LOCAL
 let server = TCPServer(host: "localhost", port: 8081)
 #else
-let server = TCPServer(host: "tcp.cartisim.io", port: 8081)
+let server = TCPServer(host: "159.65.103.99", port: 8081)
 #endif
 do {
     print("Server is running")
