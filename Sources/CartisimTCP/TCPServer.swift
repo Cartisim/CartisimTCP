@@ -16,41 +16,46 @@ public class TCPServer {
     
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     
-    private var serverBootstrap: ServerBootstrap {
-        #if DEBUG || LOCAL
-        return ServerBootstrap(group: group)
-            .serverChannelOption(ChannelOptions.backlog, value: 256)
-            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-
-
-            .childChannelInitializer { channel in
-                channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-                    channel.pipeline.addHandler(ChatHandler())
-                }
-            }
-
-            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
-            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-        #else
+    private func serverBootstrap() throws -> ServerBootstrap {
+        //        #if DEBUG || LOCAL
+        //        return ServerBootstrap(group: group)
+        //            .serverChannelOption(ChannelOptions.backlog, value: 256)
+        //            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+        //            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        //
+        //
+        //            .childChannelInitializer { channel in
+        //                channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
+        //                    channel.pipeline.addHandler(ChatHandler())
+        //                }
+        //            }
+        //
+        //            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
+        //            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        //            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+        //            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+        //        #else
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/cert.pem"
         let keyPath = basePath + "/privkey.pem"
-        let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
-            .map { NIOSSLCertificateSource.certificate($0) }
-        let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
-
-            let sslContext = try? NIOSSLContext(configuration: tls)
-            let handler = NIOSSLServerHandler(context: sslContext!)
-
-            return ServerBootstrap(group: group)
+        let bootstrap = ServerBootstrap(group: group)
+        do {
+            let certs = try NIOSSLCertificate.fromPEMFile(certPath)
+                .map { NIOSSLCertificateSource.certificate($0) }
+            print(certs)
+            let configuration = TLSConfiguration.forServer(certificateChain: certs,
+                                                           privateKey: .file(keyPath))
+            print(configuration)
+            guard let sslContext = try? NIOSSLContext(configuration: configuration) else {throw TCPErrors.sslContextError("SSL Context is Empty")}
+            print(sslContext)
+            let handler = NIOSSLServerHandler(context: sslContext)
+            print(handler)
+            return bootstrap
                 .serverChannelOption(ChannelOptions.backlog, value: 256)
                 .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
                 .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-
-
+                
+                
                 .childChannelInitializer { channel in
                     channel.pipeline.addHandler(handler).flatMap { v in
                         channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
@@ -58,12 +63,16 @@ public class TCPServer {
                         }
                     }
                 }
-
+                
                 .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
                 .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
                 .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
                 .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-        #endif
+            //        #endif
+        } catch {
+            print(error)
+        }
+        return bootstrap
     }
     
     
@@ -96,7 +105,7 @@ public class TCPServer {
         }
         
         let bindTarget: BindTo
-       
+        
         switch (arg1, arg1.flatMap(Int.init), arg2.flatMap(Int.init)) {
         case (.some(let h), _ , .some(let p)):
             /* we got two arguments, let's interpret that as host and port */
@@ -113,13 +122,13 @@ public class TCPServer {
         default:
             bindTarget = .ip(host: host, port: port)
         }
-
+        
         let channel = try { () -> Channel in
             switch bindTarget {
             case .ip(let host, let port):
-                return try serverBootstrap.bind(host: host, port: port).wait()
+                return try serverBootstrap().bind(host: host, port: port).wait()
             case .unixDomainSocket(let path):
-                return try serverBootstrap.bind(unixDomainSocketPath: path).wait()
+                return try serverBootstrap().bind(unixDomainSocketPath: path).wait()
             }
         }()
         
@@ -129,11 +138,11 @@ public class TCPServer {
         print("Server started and listening on \(localAddress)")
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
-
+        
     }
 }
 
- func fetchKeys() throws {
+func fetchKeys() throws {
     let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
     var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
     request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
@@ -195,4 +204,7 @@ struct KeyData {
             _keychainEncryptionKey = newValue
         }
     }
+}
+enum TCPErrors: Error {
+    case sslContextError(String)
 }
