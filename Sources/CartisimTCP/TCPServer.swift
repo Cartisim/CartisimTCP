@@ -16,42 +16,23 @@ public class TCPServer {
     
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     
-    private func serverBootstrap() throws -> ServerBootstrap {
-                #if DEBUG || LOCAL
-                return ServerBootstrap(group: group)
-                    .serverChannelOption(ChannelOptions.backlog, value: 256)
-                    .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-                    .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        
-        
-                    .childChannelInitializer { channel in
-                        channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-                            channel.pipeline.addHandler(ChatHandler())
-                        }
-                    }
-        
-                    .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
-                    .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-                    .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-                    .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-                #else
+    private var serverBootstrap: ServerBootstrap {
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/cert.pem"
+        #if DEBUG || LOCAL
+        let keyPath = basePath + "/key.pem"
+        #else
         let keyPath = basePath + "/privkey.pem"
+        #endif
         let bootstrap = ServerBootstrap(group: group)
-//        do {
-            let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
+        do {
+            let certs = try NIOSSLCertificate.fromPEMFile(certPath)
                 .map { NIOSSLCertificateSource.certificate($0) }
-            print(certs, "PUBLIC CERT")
-            let privateKey = try! NIOSSLPrivateKey(file: keyPath, format: .pem)
-            print(privateKey, "PRIVATE KEY")
+            let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
             let configuration = TLSConfiguration.forServer(certificateChain: certs,
                                                            privateKey: .privateKey( privateKey))
-            print(configuration, "CONFIGURATION")
-            let sslContext = try! NIOSSLContext(configuration: configuration)
-            print(sslContext, "CONTEXT")
+            let sslContext = try NIOSSLContext(configuration: configuration)
             let handler = NIOSSLServerHandler(context: sslContext)
-            print(handler, "HANDLER")
             return bootstrap
                 .serverChannelOption(ChannelOptions.backlog, value: 256)
                 .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
@@ -67,11 +48,10 @@ public class TCPServer {
                 .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
                 .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
                 .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-//        } catch {
-//            print(error, "OUR ERROR")
-//        }
+        } catch {
+            print(error, "OUR ERROR")
+        }
         return bootstrap
-        #endif
     }
     
     
@@ -121,13 +101,13 @@ public class TCPServer {
         default:
             bindTarget = .ip(host: host, port: port)
         }
-        
+        print(bindTarget, "binder")
         let channel = try { () -> Channel in
             switch bindTarget {
             case .ip(let host, let port):
-                return try serverBootstrap().bind(host: host, port: port).wait()
+                return try serverBootstrap.bind(host: host, port: port).wait()
             case .unixDomainSocket(let path):
-                return try serverBootstrap().bind(unixDomainSocketPath: path).wait()
+                return try serverBootstrap.bind(unixDomainSocketPath: path).wait()
             }
         }()
         print(channel, "3")
