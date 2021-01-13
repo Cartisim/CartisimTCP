@@ -47,7 +47,7 @@ public class TCPServer {
             let configuration = TLSConfiguration.forServer(certificateChain: certs,
                                                            privateKey: .privateKey( privates))
             print(configuration)
-            guard let sslContext = try? NIOSSLContext(configuration: configuration) else {throw TCPErrors.sslContextError("SSL Context is Empty")}
+                let sslContext = try NIOSSLContext(configuration: configuration)
             print(sslContext)
             let handler = NIOSSLServerHandler(context: sslContext)
             print(handler)
