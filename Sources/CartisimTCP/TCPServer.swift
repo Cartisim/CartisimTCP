@@ -17,24 +17,24 @@ public class TCPServer {
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     
     private func serverBootstrap() throws -> ServerBootstrap {
-        //        #if DEBUG || LOCAL
-        //        return ServerBootstrap(group: group)
-        //            .serverChannelOption(ChannelOptions.backlog, value: 256)
-        //            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-        //            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        //
-        //
-        //            .childChannelInitializer { channel in
-        //                channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-        //                    channel.pipeline.addHandler(ChatHandler())
-        //                }
-        //            }
-        //
-        //            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
-        //            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        //            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-        //            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-        //        #else
+                #if DEBUG || LOCAL
+                return ServerBootstrap(group: group)
+                    .serverChannelOption(ChannelOptions.backlog, value: 256)
+                    .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+                    .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        
+        
+                    .childChannelInitializer { channel in
+                        channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
+                            channel.pipeline.addHandler(ChatHandler())
+                        }
+                    }
+        
+                    .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
+                    .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+                    .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+                    .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+                #else
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/cert.pem"
         let keyPath = basePath + "/privkey.pem"
@@ -43,20 +43,18 @@ public class TCPServer {
             let certs = try NIOSSLCertificate.fromPEMFile(certPath)
                 .map { NIOSSLCertificateSource.certificate($0) }
             print(certs)
-            let privates = try NIOSSLPrivateKey(file: keyPath, format: .pem)
+            let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
+            print(privateKey)
             let configuration = TLSConfiguration.forServer(certificateChain: certs,
-                                                           privateKey: .privateKey( privates))
-            print(configuration)
-                let sslContext = try NIOSSLContext(configuration: configuration)
-            print(sslContext)
+                                                           privateKey: .privateKey( privateKey))
+            let sslContext = try NIOSSLContext(configuration: configuration)
+            print(sslContext, "CONTEXT")
             let handler = NIOSSLServerHandler(context: sslContext)
-            print(handler)
+            print(handler, "HANDLER")
             return bootstrap
                 .serverChannelOption(ChannelOptions.backlog, value: 256)
                 .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
                 .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-                
-                
                 .childChannelInitializer { channel in
                     channel.pipeline.addHandler(handler).flatMap { v in
                         channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
@@ -64,16 +62,15 @@ public class TCPServer {
                         }
                     }
                 }
-                
                 .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
                 .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
                 .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
                 .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-            //        #endif
         } catch {
-            print(error)
+            print(error, "OUR ERROR")
         }
         return bootstrap
+        #endif
     }
     
     
@@ -94,12 +91,12 @@ public class TCPServer {
         guard let port = port else {
             throw TCPError.invalidPort
         }
-        
+        print(host, port, "1")
         // First argument is the program path
         let arguments = CommandLine.arguments
         let arg1 = arguments.dropFirst().first
         let arg2 = arguments.dropFirst(2).first
-        
+        print(arguments, "2")
         enum BindTo {
             case ip(host: String, port: Int)
             case unixDomainSocket(path: String)
@@ -132,7 +129,7 @@ public class TCPServer {
                 return try serverBootstrap().bind(unixDomainSocketPath: path).wait()
             }
         }()
-        
+        print(channel, "3")
         guard let localAddress = channel.localAddress else {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
