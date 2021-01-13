@@ -39,15 +39,16 @@ public class TCPServer {
         let certPath = basePath + "/cert.pem"
         let keyPath = basePath + "/privkey.pem"
         let bootstrap = ServerBootstrap(group: group)
-        do {
-            let certs = try NIOSSLCertificate.fromPEMFile(certPath)
+//        do {
+            let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
                 .map { NIOSSLCertificateSource.certificate($0) }
-            print(certs)
-            let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
-            print(privateKey)
+            print(certs, "PUBLIC CERT")
+            let privateKey = try! NIOSSLPrivateKey(file: keyPath, format: .pem)
+            print(privateKey, "PRIVATE KEY")
             let configuration = TLSConfiguration.forServer(certificateChain: certs,
                                                            privateKey: .privateKey( privateKey))
-            let sslContext = try NIOSSLContext(configuration: configuration)
+            print(configuration, "CONFIGURATION")
+            let sslContext = try! NIOSSLContext(configuration: configuration)
             print(sslContext, "CONTEXT")
             let handler = NIOSSLServerHandler(context: sslContext)
             print(handler, "HANDLER")
@@ -66,9 +67,9 @@ public class TCPServer {
                 .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
                 .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
                 .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
-        } catch {
-            print(error, "OUR ERROR")
-        }
+//        } catch {
+//            print(error, "OUR ERROR")
+//        }
         return bootstrap
         #endif
     }
