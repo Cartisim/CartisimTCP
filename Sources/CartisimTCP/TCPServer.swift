@@ -43,8 +43,9 @@ public class TCPServer {
             let certs = try NIOSSLCertificate.fromPEMFile(certPath)
                 .map { NIOSSLCertificateSource.certificate($0) }
             print(certs)
+            let privates = try NIOSSLPrivateKey(file: keyPath, format: .pem)
             let configuration = TLSConfiguration.forServer(certificateChain: certs,
-                                                           privateKey: .file(keyPath))
+                                                           privateKey: .privateKey( privates))
             print(configuration)
             guard let sslContext = try? NIOSSLContext(configuration: configuration) else {throw TCPErrors.sslContextError("SSL Context is Empty")}
             print(sslContext)
