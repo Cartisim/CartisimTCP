@@ -112,7 +112,7 @@ public class TCPServer {
         }
         print("Server started and listening on \(localAddress)")
         //  This will never unblock as we don't close the ServerChannel.
-        try? fetchKeys()
+//        try? fetchKeys()
         try channel.closeFuture.wait()
         
     }
@@ -121,9 +121,14 @@ public class TCPServer {
 fileprivate func fetchKeys() throws {
     let homePath = FileManager().currentDirectoryPath
     let certPath = homePath + "/cert.pem"
+    #if DEBUG || LOCAL
+    let keyPath = homePath + "/key.pem"
+    #else
     let keyPath = homePath + "/privkey.pem"
+    #endif
     let certs = try NIOSSLCertificate.fromPEMFile(certPath)
         .map { NIOSSLCertificateSource.certificate($0) }
+    do {
     let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
     let configuration = TLSConfiguration.forClient(minimumTLSVersion: .tlsv12, certificateChain: certs,
                                                                                 privateKey: .privateKey( privateKey))
@@ -165,6 +170,9 @@ fileprivate func fetchKeys() throws {
                 print(error, "Error")
             }
         }
+    } catch {
+        print(error)
+    }
 }
 
 
