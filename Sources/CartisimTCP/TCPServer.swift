@@ -119,7 +119,16 @@ public class TCPServer {
 }
 
 fileprivate func fetchKeys() throws {
-    let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+    let homePath = FileManager().currentDirectoryPath
+    let certPath = homePath + "/cert.pem"
+    let keyPath = homePath + "/privkey.pem"
+    let certs = try NIOSSLCertificate.fromPEMFile(certPath)
+        .map { NIOSSLCertificateSource.certificate($0) }
+    let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
+    let configuration = TLSConfiguration.forClient(minimumTLSVersion: .tlsv12, certificateChain: certs,
+                                                                                privateKey: .privateKey( privateKey))
+  
+    let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
     var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
     request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
     request.headers.add(name: "Content-Type", value: "application/json")
