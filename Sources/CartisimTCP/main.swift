@@ -5,7 +5,7 @@
 
 
 #if DEBUG || LOCAL
-let server = TCPServer(host: "localhost", port: 8081)
+let server = TCPServer(host: "127.0.0.1", port: 8081)
 #else
 let server = TCPServer(host: "127.0.0.1", port: 8081)
 #endif
