@@ -38,9 +38,9 @@ public class TCPServer {
         return ServerBootstrap(group: group)
             
             .childChannelInitializer { channel in
-                channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext!))
+                channel.pipeline.addHandler(BackPressureHandler())
                     .flatMap { _ in
-                    channel.pipeline.addHandler(BackPressureHandler())
+                    channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext!))
                         .flatMap { _ in
                         channel.pipeline.addHandler(ChatHandler())
                     }
