@@ -113,13 +113,13 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-        do {
-            //My HTTP Call
-            try fetchKeys()
-        } catch {
-            print(error.localizedDescription, "FetchKeys Error")
-        }
-        //  This will never unblock as we don't close the ServerChannel.
+//        do {
+//            //My HTTP Call
+//            try fetchKeys()
+//        } catch {
+//            print(error.localizedDescription, "FetchKeys Error")
+//        }
+//        //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
     }
 }
