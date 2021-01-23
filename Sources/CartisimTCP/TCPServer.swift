@@ -148,16 +148,15 @@ public class TCPServer {
             .whenComplete { result in
                 switch result {
                 case .failure(let error):
-                    print(error, "FAILURE ERROR")
+                    print(error.localizedDescription, "FAILURE ERROR")
                 case .success(let response):
                     if response.status == .ok {
                         do {
-//                            guard let responseData = response.body else {return}
-//                            let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-//                            KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
-                            print(response.body, "Body")
+                            guard let responseData = response.body else {return}
+                            let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+                            KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
                         } catch {
-                            print(error, "ERROR")
+                            print(error.localizedDescription, "ERROR decoding key")
                         }
                     } else {
                         print(response.status, "Remote Error")
@@ -166,11 +165,11 @@ public class TCPServer {
                 do {
                     try httpClient.syncShutdown()
                 } catch {
-                    print(error, "Error")
+                    print(error.localizedDescription, "Error")
                 }
             }
     } catch {
-        print(error)
+        print(error.localizedDescription, "Caught Error in Fetch Keys")
     }
 }
 
