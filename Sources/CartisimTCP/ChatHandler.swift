@@ -70,64 +70,64 @@ final class ChatHandler: ChannelInboundHandler {
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
         print(received, "Received On Post Message")
-        do {
-            let objects = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
-            guard let decryptedObject = self.decryptableResponse(MessageResponse.self, string: objects.encryptedObject) else {return}
-            let homePath = FileManager().currentDirectoryPath
-            let certPath = homePath + "/fullchain.pem"
-            let keyPath = homePath + "/privkey.pem"
-            let certs = try NIOSSLCertificate.fromPEMFile(certPath)
-                .map { NIOSSLCertificateSource.certificate($0) }
-            let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
-            let configuration = TLSConfiguration.forClient(minimumTLSVersion: .tlsv12, certificateChain: certs,
-                                                                                        privateKey: .privateKey( privateKey))
-          
-            let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
-           
-            do{
-                var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
-                
-                request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
-                request.headers.add(name: "Content-Type", value: "application/json")
-                request.headers.add(name: "Authorization", value: "Bearer \(decryptedObject.token)")
-                request.headers.add(name: "Connection", value: "keep-alive")
-                request.headers.add(name: "Content-Length", value: "")
-                request.headers.add(name: "Date", value: "\(Date())")
-                request.headers.add(name: "Server", value: "TCPCartisim")
-                request.headers.add(name: "content-security-policy", value: "default-src 'none'")
-                request.headers.add(name: "x-content-type-options", value: "nosniff")
-                request.headers.add(name: "x-frame-options", value: "DENY")
-                request.headers.add(name: "x-xss-protection", value: "1; mode=block")
-
-                let body = try? JSONEncoder().encode(objects)
-                request.body = .data(body!)
-                
-                httpClient.execute(request: request)
-                    .whenComplete { result in
-                        switch result {
-                        case .failure(let error):
-                            print(error)
-                        case .success(let response):
-                            if response.status == .ok {
-                                print(response, "Response")
-                                self.channelsSyncQueue.async {
-                                    guard let data = response.body else {return}
-                                    self.writeToAll(channels: self.channels, buffer: data)
-                                }
-                            } else {
-                                // handle remote error
-//                                send email to notify remote error
-                            }
-                        }
-                        try? httpClient.syncShutdown()
-                    }
-                
-            } catch {
-                print(error)
-            }
-        } catch {
-            print(error)
-        }
+//        do {
+//            let objects = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
+//            guard let decryptedObject = self.decryptableResponse(MessageResponse.self, string: objects.encryptedObject) else {return}
+//            let homePath = FileManager().currentDirectoryPath
+//            let certPath = homePath + "/fullchain.pem"
+//            let keyPath = homePath + "/privkey.pem"
+//            let certs = try NIOSSLCertificate.fromPEMFile(certPath)
+//                .map { NIOSSLCertificateSource.certificate($0) }
+//            let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
+//            let configuration = TLSConfiguration.forClient(minimumTLSVersion: .tlsv12, certificateChain: certs,
+//                                                                                        privateKey: .privateKey( privateKey))
+//
+//            let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
+//
+//            do{
+//                var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
+//
+//                request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
+//                request.headers.add(name: "Content-Type", value: "application/json")
+//                request.headers.add(name: "Authorization", value: "Bearer \(decryptedObject.token)")
+//                request.headers.add(name: "Connection", value: "keep-alive")
+//                request.headers.add(name: "Content-Length", value: "")
+//                request.headers.add(name: "Date", value: "\(Date())")
+//                request.headers.add(name: "Server", value: "TCPCartisim")
+//                request.headers.add(name: "content-security-policy", value: "default-src 'none'")
+//                request.headers.add(name: "x-content-type-options", value: "nosniff")
+//                request.headers.add(name: "x-frame-options", value: "DENY")
+//                request.headers.add(name: "x-xss-protection", value: "1; mode=block")
+//
+//                let body = try? JSONEncoder().encode(objects)
+//                request.body = .data(body!)
+//
+//                httpClient.execute(request: request)
+//                    .whenComplete { result in
+//                        switch result {
+//                        case .failure(let error):
+//                            print(error)
+//                        case .success(let response):
+//                            if response.status == .ok {
+//                                print(response, "Response")
+//                                self.channelsSyncQueue.async {
+//                                    guard let data = response.body else {return}
+//                                    self.writeToAll(channels: self.channels, buffer: data)
+//                                }
+//                            } else {
+//                                // handle remote error
+////                                send email to notify remote error
+//                            }
+//                        }
+//                        try? httpClient.syncShutdown()
+//                    }
+//
+//            } catch {
+//                print(error)
+//            }
+//        } catch {
+//            print(error)
+//        }
     }
     
     func channelReadComplete(context: ChannelHandlerContext) {
