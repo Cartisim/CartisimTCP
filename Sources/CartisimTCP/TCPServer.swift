@@ -27,9 +27,9 @@ public class TCPServer {
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         #else
         let basePath = FileManager().currentDirectoryPath
-        let certPath = basePath + "/cert.pem"
+        let certPath = basePath + "/fullchain.pem"
         let keyPath = basePath + "/privkey.pem"
-        print(certPath, keyPath)
+
         let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
             .map { NIOSSLCertificateSource.certificate($0) }
         let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
@@ -38,9 +38,9 @@ public class TCPServer {
         return ServerBootstrap(group: group)
             
             .childChannelInitializer { channel in
-                channel.pipeline.addHandler(BackPressureHandler())
+                channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext!))
                     .flatMap { _ in
-                    channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext!))
+                    channel.pipeline.addHandler(BackPressureHandler())
                         .flatMap { _ in
                         channel.pipeline.addHandler(ChatHandler())
                     }
@@ -113,7 +113,7 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-        
+        try? fetchKeys()
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
     }
@@ -121,12 +121,9 @@ public class TCPServer {
 
 fileprivate func fetchKeys() throws {
     let homePath = FileManager().currentDirectoryPath
-    let certPath = homePath + "/cert.pem"
-    #if DEBUG || LOCAL
-    let keyPath = homePath + "/key.pem"
-    #else
+    let certPath = homePath + "/fullchain.pem"
     let keyPath = homePath + "/privkey.pem"
-    #endif
+
     let certs = try NIOSSLCertificate.fromPEMFile(certPath)
         .map { NIOSSLCertificateSource.certificate($0) }
     do {
