@@ -113,13 +113,13 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-        try? fetchKeys()
+//    try? fetchKeys()
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
     }
 }
 
-fileprivate func fetchKeys() throws {
+ func fetchKeys() throws {
     let homePath = FileManager().currentDirectoryPath
     let certPath = homePath + "/fullchain.pem"
     let keyPath = homePath + "/privkey.pem"
@@ -152,9 +152,10 @@ fileprivate func fetchKeys() throws {
                 case .success(let response):
                     if response.status == .ok {
                         do {
-                            guard let responseData = response.body else {return}
-                            let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-                            KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
+//                            guard let responseData = response.body else {return}
+//                            let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+//                            KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
+                            print(response.body, "Body")
                         } catch {
                             print(error, "ERROR")
                         }

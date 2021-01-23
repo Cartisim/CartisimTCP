@@ -3,3 +3,7 @@
 /Packages
 /*.xcodeproj
 xcuserdata/
+cert.pem
+privkey.pem
+key.pem
+fullchain.pem

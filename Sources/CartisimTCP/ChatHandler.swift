@@ -36,6 +36,7 @@ final class ChatHandler: ChannelInboundHandler {
     
     public func channelActive(context: ChannelHandlerContext) {
         print("ACTIVE")
+        try? fetchKeys()
         let channel = context.channel
         self.channelsSyncQueue.async { [self] in
             self.channels[ObjectIdentifier(channel)] = channel
