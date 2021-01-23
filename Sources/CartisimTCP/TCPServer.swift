@@ -114,6 +114,7 @@ public class TCPServer {
         }
         print("Server started and listening on \(localAddress)")
         do {
+            //My HTTP Call
             try fetchKeys()
         } catch {
             print(error.localizedDescription, "FetchKeys Error")
@@ -136,6 +137,9 @@ fileprivate func fetchKeys() throws {
                                                        privateKey: .privateKey( privateKey))
         
         let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
+        defer {
+            try? httpClient.syncShutdown()
+        }
         var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
         request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
         request.headers.add(name: "Content-Type", value: "application/json")
@@ -148,30 +152,20 @@ fileprivate func fetchKeys() throws {
         request.headers.add(name: "x-content-type-options", value: "nosniff")
         request.headers.add(name: "x-frame-options", value: "DENY")
         request.headers.add(name: "x-xss-protection", value: "1; mode=block")
-        httpClient.execute(request: request)
-            .whenComplete { result in
-                switch result {
-                case .failure(let error):
-                    print(error.localizedDescription, "FAILURE ERROR")
-                case .success(let response):
-                    if response.status == .ok {
-                        do {
-                            guard let responseData = response.body else {return}
-                            let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-                            KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
-                        } catch {
-                            print(error.localizedDescription, "ERROR decoding key")
-                        }
-                    } else {
-                        print(response.status, "Remote Error")
-                    }
-                }
+        if let result = try? httpClient.execute(request: request).wait() {
+            if result.status == .ok {
                 do {
-                    try httpClient.syncShutdown()
+                    guard let responseData = result.body else {return}
+                    let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+                    KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
                 } catch {
-                    print(error.localizedDescription, "Error")
+                    print(error.localizedDescription, "ERROR decoding key")
                 }
+            } else {
+                print(result.status, "Remote Error")
             }
+        }
+        
     } catch {
         print(error.localizedDescription, "Caught Error in Fetch Keys")
     }
