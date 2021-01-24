@@ -67,10 +67,8 @@ final class ChatHandler: ChannelInboundHandler {
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
         print(received, "Received On Post Message")
-        print(buffer, "buffer")
         do {
             let object = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
-            print(object, "Objects")
             guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
             print(decryptedObject, "DO")
             let homePath = FileManager().currentDirectoryPath
@@ -84,7 +82,11 @@ final class ChatHandler: ChannelInboundHandler {
             
             let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
             defer {
-                try? httpClient.syncShutdown()
+                do {
+                try httpClient.syncShutdown()
+                } catch {
+                    print(error.localizedDescription, "Error Shutting down")
+                }
             }
             var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
             
