@@ -72,7 +72,9 @@ final class ChatHandler: ChannelInboundHandler {
         print(received, "Received On Post Message")
         do {
             let objects = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
+            print(objects, "Objects")
             guard let decryptedObject = self.decryptableResponse(MessageResponse.self, string: objects.encryptedObject) else {return}
+            print(decryptedObject, "DO")
             let homePath = FileManager().currentDirectoryPath
             let certPath = homePath + "/fullchain.pem"
             let keyPath = homePath + "/privkey.pem"
@@ -139,7 +141,7 @@ final class ChatHandler: ChannelInboundHandler {
                     print(error)
                 }
             } catch {
-                print(error)
+                print(error.localizedDescription, "Decoding Error in Chat Handler")
             }
         }
         

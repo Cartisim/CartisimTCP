@@ -153,6 +153,7 @@ fileprivate func fetchKeys() throws {
                 do {
                     guard let responseData = result.body else {return}
                     let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+                    print(objects.last?.keychainEncryptionKey as Any, "KEK")
                     KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
                 } catch {
                     print(error.localizedDescription, "ERROR decoding key")
