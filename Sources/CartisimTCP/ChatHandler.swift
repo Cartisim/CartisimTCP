@@ -69,7 +69,7 @@ final class ChatHandler: ChannelInboundHandler {
         print(received, "Received On Post Message")
         print(buffer, "buffer")
         do {
-            let object = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
+            let object = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer.getData(at: 0, length: read.readableBytes)!)
             print(object, "Objects")
             guard let decryptedObject = CartisimCrypto.decryptableResponse(MessageResponse.self, string: object.encryptedObject) else {return}
             print(decryptedObject, "DO")
