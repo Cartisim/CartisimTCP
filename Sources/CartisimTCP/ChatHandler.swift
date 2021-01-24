@@ -69,9 +69,9 @@ final class ChatHandler: ChannelInboundHandler {
         print(received, "Received On Post Message")
         print(buffer, "buffer")
         do {
-            let object = try JSONDecoder().decode(EncryptedRequest.self, from: buffer)
+            let object = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
             print(object, "Objects")
-            guard let decryptedObject = CartisimCrypto.decryptableResponse(MessageResponse.self, string: object.encryptedObject) else {return}
+            guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
             print(decryptedObject, "DO")
             let homePath = FileManager().currentDirectoryPath
             let certPath = homePath + "/fullchain.pem"

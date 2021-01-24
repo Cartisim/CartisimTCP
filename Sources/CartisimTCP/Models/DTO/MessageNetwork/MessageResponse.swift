@@ -1,6 +1,6 @@
 import Foundation
 
-struct MessageResponse: Codable {
+struct ChatroomRequest: Codable {
     var avatar: String?
     var contactID: String
     var name: String
