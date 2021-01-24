@@ -5,7 +5,8 @@ import Crypto
 #endif
 import Foundation
 
-public class CartisimCrypto {
+public class CartisimCrypto: NSObject {
+    
     static func userInfoKey(_ key: String) -> SymmetricKey {
         let hash = SHA256.hash(data: key.data(using: .utf8)!)
         let hashString = hash.map { String(format: "%02hhx", $0)}.joined()
@@ -28,5 +29,23 @@ public class CartisimCrypto {
         let decoder = JSONDecoder()
         let object = try decoder.decode(type, from: decryptData)
         return object
+    }
+    
+    static func encryptableBody<T: Codable>(body: T) -> EncryptedAuthRequest {
+        let key = CartisimCrypto.userInfoKey(KeyData.shared.keychainEncryptionKey)
+        let bodyData = try? CartisimCrypto.encryptCodableObject(body, usingKey: key)
+        let encryptedRequest = EncryptedAuthRequest(encryptedObject: bodyData!)
+        return encryptedRequest
+    }
+    
+    static func decryptableResponse<T: Codable>(_ body: T.Type, string: String) -> T? {
+        let key = CartisimCrypto.userInfoKey(KeyData.shared.keychainEncryptionKey)
+        do {
+            let object = try CartisimCrypto.decryptStringToCodableObject(body, from: string, usingKey: key)
+            return object
+        } catch {
+            print(error)
+        }
+        return nil
     }
 }

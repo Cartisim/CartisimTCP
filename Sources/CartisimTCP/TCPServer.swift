@@ -153,7 +153,6 @@ fileprivate func fetchKeys() throws {
                 do {
                     guard let responseData = result.body else {return}
                     let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-                    print(objects.last?.keychainEncryptionKey as Any, "KEK")
                     KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
                 } catch {
                     print(error.localizedDescription, "ERROR decoding key")
@@ -167,40 +166,3 @@ fileprivate func fetchKeys() throws {
         print(error.localizedDescription, "Caught Error in Fetch Keys")
     }
 }
-
-
-class Keys: Codable {
-    var keychainEncryptionKey: String?
-    
-    init(keychainEncryptionKey: String? = "") {
-        self.keychainEncryptionKey = keychainEncryptionKey
-    }
-}
-
-struct KeyData {
-    static var shared = KeyData()
-    
-    fileprivate var _keychainEncryptionKey: String = ""
-    
-    var keychainEncryptionKey: String {
-        get {
-            return _keychainEncryptionKey
-        }
-        set {
-            _keychainEncryptionKey = newValue
-        }
-    }
-}
-enum TCPErrors: Error {
-    case sslContextError(String)
-}
-
-
-//            .serverChannelOption(ChannelOptions.backlog, value: 256)
-//            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-//            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-//
-
-//            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
-//            .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-//            .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
