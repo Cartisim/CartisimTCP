@@ -62,6 +62,11 @@ final class ChatHandler: ChannelInboundHandler {
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        let homePath = FileManager().currentDirectoryPath
+        let certPath = homePath + "/fullchain.pem"
+        let keyPath = homePath + "/privkey.pem"
+        
+        
         var read = self.unwrapInboundIn(data)
         var buffer = context.channel.allocator.buffer(capacity: read.readableBytes + 64)
         guard let received = read.readString(length: read.readableBytes) else {return}
@@ -70,10 +75,6 @@ final class ChatHandler: ChannelInboundHandler {
         do {
             let object = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
             guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
-            print(decryptedObject, "DO")
-            let homePath = FileManager().currentDirectoryPath
-            let certPath = homePath + "/fullchain.pem"
-            let keyPath = homePath + "/privkey.pem"
             let certs = try NIOSSLCertificate.fromPEMFile(certPath)
                 .map { NIOSSLCertificateSource.certificate($0) }
             let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
