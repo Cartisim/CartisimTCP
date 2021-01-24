@@ -68,7 +68,6 @@ public class TCPServer {
         guard let port = port else {
             throw TCPError.invalidPort
         }
-        print("HOST:", host, "PORT:", port)
         // First argument is the program path
         let arguments = CommandLine.arguments
         let arg1 = arguments.dropFirst().first
@@ -97,14 +96,11 @@ public class TCPServer {
         default:
             bindTarget = .ip(host: host, port: port)
         }
-        print("BINDTARGET:", bindTarget)
         let channel = try { () -> Channel in
             switch bindTarget {
             case .ip(let host, let port):
-                print("IP HOST:", host, "IP PORT:", port)
                 return try serverBootstrap.bind(host: host, port: port).wait()
             case .unixDomainSocket(let path):
-                print("UDS PATH:", path)
                 return try serverBootstrap.bind(unixDomainSocketPath: path).wait()
             }
         }()
@@ -113,13 +109,13 @@ public class TCPServer {
             fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
         }
         print("Server started and listening on \(localAddress)")
-//        do {
-//            //My HTTP Call
-//            try fetchKeys()
-//        } catch {
-//            print(error.localizedDescription, "FetchKeys Error")
-//        }
-//        //  This will never unblock as we don't close the ServerChannel.
+        do {
+            //My HTTP Call
+            try fetchKeys()
+        } catch {
+            print(error.localizedDescription, "FetchKeys Error")
+        }
+        //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
     }
 }
