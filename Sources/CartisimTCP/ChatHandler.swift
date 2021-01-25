@@ -84,8 +84,8 @@ final class ChatHandler: ChannelInboundHandler {
             request.headers.add(name: "x-frame-options", value: "DENY")
             request.headers.add(name: "x-xss-protection", value: "1; mode=block")
             
-            let body = try? JSONEncoder().encode(object)
-            request.body = .data(body!)
+            guard let body = try? JSONEncoder().encode(object) else {return}
+            request.body = .data(body)
             if let result = try? TCPServer.httpClient?.execute(request: request).wait() {
                 if result.status == .ok {
                     print(result, "Response")
@@ -115,3 +115,4 @@ final class ChatHandler: ChannelInboundHandler {
         channels.forEach { $0.value.writeAndFlush(buffer, promise: nil) }
     }
 }
+

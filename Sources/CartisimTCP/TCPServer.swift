@@ -136,7 +136,6 @@ public class TCPServer {
             if result.status == .ok {
                 guard let responseData = result.body else {return}
                 let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-                print(objects, "OB")
                 KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
             } else {
                 print(result.status, "Remote Error")
