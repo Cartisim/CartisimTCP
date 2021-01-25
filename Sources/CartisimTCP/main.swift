@@ -13,7 +13,7 @@ do {
     print("Server is running")
     try server.run()
 } catch let error {
-    print("Error: \(error.localizedDescription)")
+    print("Error: \(error)")
     server.shutdown()
 }
 

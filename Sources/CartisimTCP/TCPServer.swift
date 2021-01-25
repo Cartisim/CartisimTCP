@@ -8,13 +8,14 @@ public class TCPServer {
     
     private var host: String?
     private var port: Int?
+    let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
+    static var httpClient: HTTPClient?
     
     init(host: String, port: Int) {
         self.host = host
         self.port = port
+        TCPServer.httpClient = HTTPClient(eventLoopGroupProvider: .shared(group))
     }
-    
-    let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     
     private var serverBootstrap: ServerBootstrap {
         #if DEBUG || LOCAL
@@ -55,7 +56,7 @@ public class TCPServer {
         do {
             try group.syncShutdownGracefully()
         } catch let error {
-            print("Could not gracefully shutdown, Forcing the exit (\(error.localizedDescription)")
+            print("Could not gracefully shutdown, Forcing the exit (\(error)")
             exit(0)
         }
         print("closed server")
@@ -110,32 +111,15 @@ public class TCPServer {
         }
         print("Server started and listening on \(localAddress)")
         do {
-            //My HTTP Call
             try fetchKeys()
         } catch {
-            print(error.localizedDescription, "FetchKeys Error")
+            print(error, "FetchKeys Error")
         }
         //  This will never unblock as we don't close the ServerChannel.
         try channel.closeFuture.wait()
     }
-}
-
-fileprivate func fetchKeys() throws {
-    let homePath = FileManager().currentDirectoryPath
-    let certPath = homePath + "/fullchain.pem"
-    let keyPath = homePath + "/privkey.pem"
     
-    let certs = try NIOSSLCertificate.fromPEMFile(certPath)
-        .map { NIOSSLCertificateSource.certificate($0) }
-    do {
-        let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
-        let configuration = TLSConfiguration.forClient(minimumTLSVersion: .tlsv12, certificateChain: certs,
-                                                       privateKey: .privateKey( privateKey))
-        
-        let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
-        defer {
-            try? httpClient.syncShutdown()
-        }
+    fileprivate func fetchKeys() throws {
         var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
         request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
         request.headers.add(name: "Content-Type", value: "application/json")
@@ -148,21 +132,16 @@ fileprivate func fetchKeys() throws {
         request.headers.add(name: "x-content-type-options", value: "nosniff")
         request.headers.add(name: "x-frame-options", value: "DENY")
         request.headers.add(name: "x-xss-protection", value: "1; mode=block")
-        if let result = try? httpClient.execute(request: request).wait() {
+        if let result = try? TCPServer.httpClient?.execute(request: request).wait() {
             if result.status == .ok {
-                do {
-                    guard let responseData = result.body else {return}
-                    let objects = try JSONDecoder().decode([Keys].self, from: responseData)
-                    KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
-                } catch {
-                    print(error.localizedDescription, "ERROR decoding key")
-                }
+                guard let responseData = result.body else {return}
+                let objects = try JSONDecoder().decode([Keys].self, from: responseData)
+                print(objects, "OB")
+                KeyData.shared.keychainEncryptionKey = objects.last?.keychainEncryptionKey ?? ""
             } else {
                 print(result.status, "Remote Error")
             }
         }
-        
-    } catch {
-        print(error.localizedDescription, "Caught Error in Fetch Keys")
     }
 }
+

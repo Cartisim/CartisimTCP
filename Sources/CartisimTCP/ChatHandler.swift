@@ -62,11 +62,6 @@ final class ChatHandler: ChannelInboundHandler {
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let homePath = FileManager().currentDirectoryPath
-        let certPath = homePath + "/fullchain.pem"
-        let keyPath = homePath + "/privkey.pem"
-        
-        
         var read = self.unwrapInboundIn(data)
         var buffer = context.channel.allocator.buffer(capacity: read.readableBytes + 64)
         guard let received = read.readString(length: read.readableBytes) else {return}
@@ -75,20 +70,6 @@ final class ChatHandler: ChannelInboundHandler {
         do {
             let object = try JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
             guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
-            let certs = try NIOSSLCertificate.fromPEMFile(certPath)
-                .map { NIOSSLCertificateSource.certificate($0) }
-            let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
-            let configuration = TLSConfiguration.forClient(minimumTLSVersion: .tlsv12, certificateChain: certs,
-                                                           privateKey: .privateKey( privateKey))
-            
-            let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: HTTPClient.Configuration(tlsConfiguration: configuration))
-            defer {
-                do {
-                try httpClient.syncShutdown()
-                } catch {
-                    print(error.localizedDescription, "Error Shutting down")
-                }
-            }
             var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
             
             request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
@@ -105,7 +86,7 @@ final class ChatHandler: ChannelInboundHandler {
             
             let body = try? JSONEncoder().encode(object)
             request.body = .data(body!)
-            if let result = try? httpClient.execute(request: request).wait() {
+            if let result = try? TCPServer.httpClient?.execute(request: request).wait() {
                 if result.status == .ok {
                     print(result, "Response")
                     self.channelsSyncQueue.async {
@@ -117,7 +98,7 @@ final class ChatHandler: ChannelInboundHandler {
                 }
             }
         } catch {
-            print(error.localizedDescription, "Error in Chat Handler")
+            print(error, "Error in Chat Handler")
         }
     }
     
