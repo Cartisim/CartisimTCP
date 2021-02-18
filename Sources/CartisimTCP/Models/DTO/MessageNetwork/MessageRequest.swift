@@ -2,14 +2,14 @@ import Foundation
 
 struct MessageRequest: Codable {
     var avatar: String?
-    var contactID: String
+    var userID: String
     var name: String
     var message: String
     var chatSessionID: String
     
-    init(avatar: String, contactID: String, name: String, message: String, chatSessionID: String) {
+    init(avatar: String, userID: String, name: String, message: String, chatSessionID: String) {
         self.avatar = avatar
-        self.contactID = contactID
+        self.userID = userID
         self.name = name
         self.message = message
         self.chatSessionID = chatSessionID
