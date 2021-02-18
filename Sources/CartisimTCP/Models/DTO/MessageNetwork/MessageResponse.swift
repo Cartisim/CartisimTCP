@@ -11,7 +11,7 @@ struct ChatroomRequest: Codable {
     
     init(avatar: String, userID: String, name: String, message: String, token: String, sessionID: String, chatSessionID: String) {
         self.avatar = avatar
-        self.userID = contactID
+        self.userID = userID
         self.name = name
         self.message = message
         self.token = token
