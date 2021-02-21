@@ -33,8 +33,10 @@ final class ChatHandler: ChannelInboundHandler {
     
     public func channelActive(context: ChannelHandlerContext) {
         print("ACTIVE")
+        let remoteAddress = context.remoteAddress!
         let channel = context.channel
         self.channelsSyncQueue.async { [self] in
+            self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
             self.channels[ObjectIdentifier(channel)] = channel
         }
         context.fireChannelActive()
@@ -62,6 +64,7 @@ final class ChatHandler: ChannelInboundHandler {
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        let id = ObjectIdentifier(context.channel)
         var read = self.unwrapInboundIn(data)
         var buffer = context.channel.allocator.buffer(capacity: read.readableBytes + 64)
         guard let received = read.readString(length: read.readableBytes) else {return}
@@ -91,7 +94,7 @@ final class ChatHandler: ChannelInboundHandler {
                 print(result, "Response")
                 self.channelsSyncQueue.async {
                     guard let data = result.body else {return}
-                    self.writeToAll(channels: self.channels, buffer: data)
+                    self.writeToAll(channels: self.channels.filter { id != $0.key }, buffer: data)
                 }
             } else {
                 print(result.status, "Remote Error")
