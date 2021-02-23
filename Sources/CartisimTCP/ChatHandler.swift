@@ -39,8 +39,12 @@ final class ChatHandler: ChannelInboundHandler {
             self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
             self.channels[ObjectIdentifier(channel)] = channel
         }
+        
+        print("(ChatServer) - Welcome to: \(context.localAddress!)\n")
+        
         context.fireChannelActive()
     }
+    
     
     public func close(context: ChannelHandlerContext, mode: CloseMode, promise: EventLoopPromise<Void>?) {
         print("CLOSE", context.channel, mode)
@@ -64,7 +68,7 @@ final class ChatHandler: ChannelInboundHandler {
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let id = ObjectIdentifier(context.channel)
+//        let id = ObjectIdentifier(context.channel)
         var read = self.unwrapInboundIn(data)
         var buffer = context.channel.allocator.buffer(capacity: read.readableBytes + 64)
         guard let received = read.readString(length: read.readableBytes) else {return}
@@ -94,7 +98,9 @@ final class ChatHandler: ChannelInboundHandler {
                 print(result, "Response")
                 self.channelsSyncQueue.async {
                     guard let data = result.body else {return}
-                    self.writeToAll(channels: self.channels.filter { id != $0.key }, buffer: data)
+//                    self.writeToAll(channels: self.channels.filter { id != $0.key }, buffer: data)
+                    print(self.channels, "Channels")
+                    self.writeToAll(channels: self.channels, buffer: data)
                 }
             } else {
                 print(result.status, "Remote Error")

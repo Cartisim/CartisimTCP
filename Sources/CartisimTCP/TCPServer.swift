@@ -8,6 +8,7 @@ public class TCPServer {
     
     private var host: String?
     private var port: Int?
+    let chatHandler = ChatHandler()
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     static var httpClient: HTTPClient?
     
@@ -20,10 +21,13 @@ public class TCPServer {
     private var serverBootstrap: ServerBootstrap {
         #if DEBUG || LOCAL
         return ServerBootstrap(group: group)
+            
             .childChannelInitializer { channel in
                 channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-                    channel.pipeline.addHandler(ChatHandler())
+//                channel.pipeline.addHandler(ByteToMessageHandler(LineDelimiterCodec())).flatMap { v in
+                    channel.pipeline.addHandler(self.chatHandler)
                 }
+//                }
             }
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         #else
@@ -42,8 +46,8 @@ public class TCPServer {
                 channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext!))
                     .flatMap { _ in
                         channel.pipeline.addHandler(BackPressureHandler())
-                            .flatMap { _ in
-                                channel.pipeline.addHandler(ChatHandler())
+                            .flatMap { v in
+                                channel.pipeline.addHandler(self.chatHandler)
                             }
                     }
             }
