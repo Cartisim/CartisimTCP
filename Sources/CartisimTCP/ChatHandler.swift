@@ -78,7 +78,7 @@ final class ChatHandler: ChannelInboundHandler {
         let object = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
         guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object!.encryptedObject) else {return}
         var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
-        
+        print(decryptedObject.token, "TOKEN____________________")
         request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
         request.headers.add(name: "Content-Type", value: "application/json")
         request.headers.add(name: "Authorization", value: "Bearer \(decryptedObject.token)")
