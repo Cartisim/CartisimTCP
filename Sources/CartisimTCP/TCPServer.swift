@@ -125,17 +125,7 @@ public class TCPServer {
     
     fileprivate func fetchKeys() throws {
         var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetchKeys", method: .GET)
-        request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
-        request.headers.add(name: "Content-Type", value: "application/json")
-        request.headers.add(name: "Authorization", value: "Bearer")
-        request.headers.add(name: "Connection", value: "keep-alive")
-        request.headers.add(name: "Content-Length", value: "")
-        request.headers.add(name: "Date", value: "\(Date())")
-        request.headers.add(name: "Server", value: "TCPCartisim")
-        request.headers.add(name: "content-security-policy", value: "default-src 'none'")
-        request.headers.add(name: "x-content-type-options", value: "nosniff")
-        request.headers.add(name: "x-frame-options", value: "DENY")
-        request.headers.add(name: "x-xss-protection", value: "1; mode=block")
+        request.headers.add(contentsOf: Headers.headers(token: ""))
         if let result = try? TCPServer.httpClient?.execute(request: request).wait() {
             if result.status == .ok {
                 guard let responseData = result.body else {return}

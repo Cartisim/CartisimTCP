@@ -2,6 +2,7 @@ import Foundation
 import NIO
 import NIOSSL
 import AsyncHTTPClient
+import NIOHTTP1
 #if os(macOS)
 import CryptoKit
 #else
@@ -33,10 +34,10 @@ final class ChatHandler: ChannelInboundHandler {
     
     public func channelActive(context: ChannelHandlerContext) {
         print("ACTIVE")
-        let remoteAddress = context.remoteAddress!
+        //        let remoteAddress = context.remoteAddress!
         let channel = context.channel
         self.channelsSyncQueue.async { [self] in
-            self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
+            //            self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
             self.channels[ObjectIdentifier(channel)] = channel
         }
         
@@ -56,7 +57,7 @@ final class ChatHandler: ChannelInboundHandler {
         print(channel, "INACTIVE")
         self.channelsSyncQueue.async {
             if self.channels.removeValue(forKey: ObjectIdentifier(channel)) != nil {
-                self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - Client disconnected\n")
+                self.writeToAllInactive(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - Client disconnected\n")
             }
         }
         context.fireChannelInactive()
@@ -68,29 +69,21 @@ final class ChatHandler: ChannelInboundHandler {
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-//        let id = ObjectIdentifier(context.channel)
         var read = self.unwrapInboundIn(data)
         var buffer = context.channel.allocator.buffer(capacity: read.readableBytes + 64)
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
         print(received, "Received On Post Message")
-
+        postMessage(context: context, buffer: buffer)
+    }
+    
+    fileprivate func postMessage(context: ChannelHandlerContext, buffer: ByteBuffer) {
         let object = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
         guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object!.encryptedObject) else {return}
         var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
-        print(decryptedObject.token, "TOKEN____________________")
-        request.headers.add(name: "User-Agent", value: "Swift HTTPClient")
-        request.headers.add(name: "Content-Type", value: "application/json")
-        request.headers.add(name: "Authorization", value: "Bearer \(decryptedObject.token)")
-        request.headers.add(name: "Connection", value: "keep-alive")
-        request.headers.add(name: "Content-Length", value: "")
-        request.headers.add(name: "Date", value: "\(Date())")
-        request.headers.add(name: "Server", value: "TCPCartisim")
-        request.headers.add(name: "content-security-policy", value: "default-src 'none'")
-        request.headers.add(name: "x-content-type-options", value: "nosniff")
-        request.headers.add(name: "x-frame-options", value: "DENY")
-        request.headers.add(name: "x-xss-protection", value: "1; mode=block")
-        
+
+        request.headers.add(contentsOf: Headers.headers(token: decryptedObject.accessToken))
+        print(decryptedObject.accessToken, "ACCESS_TOKEN_____________")
         guard let body = try? JSONEncoder().encode(object) else {return}
         request.body = .data(body)
         TCPServer.httpClient?.execute(request: request).map { result in
@@ -98,23 +91,69 @@ final class ChatHandler: ChannelInboundHandler {
                 print(result, "Response")
                 self.channelsSyncQueue.async {
                     guard let data = result.body else {return}
-//                    self.writeToAll(channels: self.channels.filter { id != $0.key }, buffer: data)
                     print(self.channels, "Channels")
                     self.writeToAll(channels: self.channels, buffer: data)
                 }
             } else {
-                print(result.status, "Remote Error")
+                print(result, "Remote Error")
+                if result.status == .unauthorized {
+                    guard let o = object else {return}
+                    self.refreshToken(context: context, token: decryptedObject.refreshToken, object: o)
+                }
             }
         }.whenFailure { (error) in
             print(error, "Error in Chat handler")
         }
     }
     
+    fileprivate func refreshToken(context: ChannelHandlerContext, token: String, object: EncryptedAuthRequest) {
+        let id = ObjectIdentifier(context.channel)
+        var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)auth/accessToken", method: .POST)
+        request.headers.add(contentsOf: Headers.headers(token: token))
+        guard let body = try? JSONEncoder().encode(object) else {return}
+        request.body = .data(body)
+        TCPServer.httpClient?.execute(request: request).map { result in
+            if result.status == .ok {
+                print(result, "Response")
+                self.channelsSyncQueue.async {
+                    guard let data = result.body else {return}
+                    
+                    self.writeToAll(channels: self.channels.filter { id == $0.key }, buffer: data)
+                    
+                    guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
+                    var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
+                    guard let body = try? JSONEncoder().encode(object) else {return}
+                    request.body = .data(body)
+                    TCPServer.httpClient?.execute(request: request).map { result in
+                        if result.status == .ok {
+                            print(result, "Response")
+                            self.channelsSyncQueue.async {
+                                guard let data = result.body else {return}
+                                print(self.channels, "Channels")
+                                self.writeToAll(channels: self.channels, buffer: data)
+                                
+                            }
+                        } else {
+                            print(result, "Remote Error")
+                        }
+                    }.whenFailure { (error) in
+                        print(error, "Error in Chat handler")
+                    }
+                }
+            } else {
+                print(result.status, "Refresh Error")
+            }
+        }.whenFailure { (error) in
+            print(error, "Error in Chat handler")
+        }
+    }
+
+    
     func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }
     
-    private func writeToAll(channels: [ObjectIdentifier: Channel], allocator: ByteBufferAllocator, message: String) {
+    private func writeToAllInactive(channels: [ObjectIdentifier: Channel], allocator: ByteBufferAllocator, message: String) {
         let buffer =  allocator.buffer(string: message)
         self.writeToAll(channels: channels, buffer: buffer)
     }
