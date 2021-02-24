@@ -83,7 +83,6 @@ final class ChatHandler: ChannelInboundHandler {
         var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
 
         request.headers.add(contentsOf: Headers.headers(token: decryptedObject.accessToken))
-        print(decryptedObject.accessToken, "ACCESS_TOKEN_____________")
         guard let body = try? JSONEncoder().encode(object) else {return}
         request.body = .data(body)
         TCPServer.httpClient?.execute(request: request).map { result in
