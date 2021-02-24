@@ -120,9 +120,22 @@ final class ChatHandler: ChannelInboundHandler {
                     self.writeToAll(channels: self.channels.filter { id == $0.key }, buffer: data)
                     
                     guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
+                
+                    
+                    let refreshObject = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: data)
+                    
+                    
+                    guard let decryptedRefreshObject = CartisimCrypto.decryptableResponse(RefreshRequest.self, string: refreshObject!.encryptedObject) else {return}
+                    
+                    
+                    print(decryptedObject, decryptedRefreshObject, "OBJECTS __________")
                     var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
-                    guard let body = try? JSONEncoder().encode(object) else {return}
-                    request.body = .data(body)
+                    request.headers.add(contentsOf: Headers.headers(token:decryptedRefreshObject.accessToken))
+                    
+                    let token = RefreshToken(refreshToken: decryptedObject.refreshToken)
+                    guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
+                    
+                    request.body = .data(refreshBody)
                     TCPServer.httpClient?.execute(request: request).map { result in
                         if result.status == .ok {
                             print(result, "Response")
