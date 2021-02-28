@@ -78,36 +78,40 @@ final class ChatHandler: ChannelInboundHandler {
     }
     
     fileprivate func postMessage(context: ChannelHandlerContext, buffer: ByteBuffer) {
-        let object = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
-        guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object!.encryptedObject) else {return}
-        var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
-
-        request.headers.add(contentsOf: Headers.headers(token: decryptedObject.accessToken))
-        guard let body = try? JSONEncoder().encode(object) else {return}
-        request.body = .data(body)
-        TCPServer.httpClient?.execute(request: request).map { result in
-            if result.status == .ok {
-                print(result, "Response")
-                self.channelsSyncQueue.async {
-                    guard let data = result.body else {return}
-                    print(self.channels, "Channels")
-                    self.writeToAll(channels: self.channels, buffer: data)
+        do {
+            let object = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer)
+            guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object!.encryptedObject) else {return}
+            var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
+            print(decryptedObject.accessToken, "ACCESS_TOKEN")
+            request.headers.add(contentsOf: Headers.headers(token: decryptedObject.accessToken))
+            guard let body = try? JSONEncoder().encode(object) else {return}
+            request.body = .data(body)
+            TCPServer.httpClient?.execute(request: request).map { result in
+                if result.status == .ok {
+                    print(result, "Response")
+                    self.channelsSyncQueue.async {
+                        guard let data = result.body else {return}
+                        print(self.channels, "Channels")
+                        self.writeToAll(channels: self.channels, buffer: data)
+                    }
+                } else {
+                    print(result, "Remote Error")
+                    if result.status == .unauthorized {
+                        guard let o = object else {return}
+                        self.refreshToken(context: context, token: decryptedObject.refreshToken, object: o)
+                    }
                 }
-            } else {
-                print(result, "Remote Error")
-                if result.status == .unauthorized {
-                    guard let o = object else {return}
-                    self.refreshToken(context: context, token: decryptedObject.refreshToken, object: o)
-                }
+            }.whenFailure { (error) in
+                print(error, "Error in Chat handler")
             }
-        }.whenFailure { (error) in
-            print(error, "Error in Chat handler")
+        } catch {
+            print(error, "Error In HTTP Request")
         }
     }
     
     fileprivate func refreshToken(context: ChannelHandlerContext, token: String, object: EncryptedAuthRequest) {
         let id = ObjectIdentifier(context.channel)
-        var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)auth/accessToken", method: .POST)
+        var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)auth/access-token", method: .POST)
         request.headers.add(contentsOf: Headers.headers(token: token))
         guard let body = try? JSONEncoder().encode(object) else {return}
         request.body = .data(body)
@@ -120,7 +124,7 @@ final class ChatHandler: ChannelInboundHandler {
                     self.writeToAll(channels: self.channels.filter { id == $0.key }, buffer: data)
                     
                     guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
-                
+                    
                     
                     let refreshObject = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: data)
                     
@@ -129,27 +133,30 @@ final class ChatHandler: ChannelInboundHandler {
                     
                     
                     print(decryptedObject, decryptedRefreshObject, "OBJECTS __________")
-                    var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)postMessage/\(decryptedObject.sessionID)", method: .POST)
-                    request.headers.add(contentsOf: Headers.headers(token:decryptedRefreshObject.accessToken))
-                    
-                    let token = RefreshToken(refreshToken: decryptedObject.refreshToken)
-                    guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
-                    
-                    request.body = .data(refreshBody)
-                    TCPServer.httpClient?.execute(request: request).map { result in
-                        if result.status == .ok {
-                            print(result, "Response")
-                            self.channelsSyncQueue.async {
-                                guard let data = result.body else {return}
-                                print(self.channels, "Channels")
-                                self.writeToAll(channels: self.channels, buffer: data)
-                                
+                    do {
+                        var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
+                        request.headers.add(contentsOf: Headers.headers(token:decryptedRefreshObject.accessToken))
+                        let token = RefreshToken(refreshToken: decryptedObject.refreshToken)
+                        guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
+                        
+                        request.body = .data(refreshBody)
+                        TCPServer.httpClient?.execute(request: request).map { result in
+                            if result.status == .ok {
+                                print(result, "Response")
+                                self.channelsSyncQueue.async {
+                                    guard let data = result.body else {return}
+                                    print(self.channels, "Channels")
+                                    self.writeToAll(channels: self.channels, buffer: data)
+                                    
+                                }
+                            } else {
+                                print(result, "Remote Error")
                             }
-                        } else {
-                            print(result, "Remote Error")
+                        }.whenFailure { (error) in
+                            print(error, "Error in Chat handler")
                         }
-                    }.whenFailure { (error) in
-                        print(error, "Error in Chat handler")
+                    } catch {
+                        print(error, "Error In HTTP Request")
                     }
                 }
             } else {
@@ -159,7 +166,7 @@ final class ChatHandler: ChannelInboundHandler {
             print(error, "Error in Chat handler")
         }
     }
-
+    
     
     func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
