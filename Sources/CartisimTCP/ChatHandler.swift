@@ -40,7 +40,7 @@ final class ChatHandler: ChannelInboundHandler {
         }
         
         print("(ChatServer) - Welcome to: \(context.localAddress!)\n")
-//        context.fireChannelActive()
+        context.fireChannelActive()
     }
     
     
@@ -57,7 +57,7 @@ final class ChatHandler: ChannelInboundHandler {
                 self.writeToAllInactive(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - Client disconnected\n")
             }
         }
-//        context.fireChannelInactive()
+        context.fireChannelInactive()
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
