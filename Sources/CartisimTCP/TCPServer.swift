@@ -124,8 +124,8 @@ public class TCPServer {
     }
     
     fileprivate func fetchKeys() throws {
-        var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)fetch-keys", method: .GET)
-//        request.headers.add(contentsOf: Headers.headers(token: ""))
+        var request = try HTTPClient.Request(url:  "\(Constants.BASE_URL)fetch-keys", method: .GET)
+        request.headers.add(contentsOf: Headers.headers(token: ""))
         if let result = try? TCPServer.httpClient?.execute(request: request).wait() {
             if result.status == .ok {
                 guard let responseData = result.body else {return}
