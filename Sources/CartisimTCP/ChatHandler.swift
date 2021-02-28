@@ -34,16 +34,13 @@ final class ChatHandler: ChannelInboundHandler {
     
     public func channelActive(context: ChannelHandlerContext) {
         print("ACTIVE")
-        //        let remoteAddress = context.remoteAddress!
         let channel = context.channel
         self.channelsSyncQueue.async { [self] in
-            //            self.writeToAll(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - New client connected with address: \(remoteAddress)\n")
             self.channels[ObjectIdentifier(channel)] = channel
         }
         
         print("(ChatServer) - Welcome to: \(context.localAddress!)\n")
-        
-        context.fireChannelActive()
+//        context.fireChannelActive()
     }
     
     
@@ -60,7 +57,7 @@ final class ChatHandler: ChannelInboundHandler {
                 self.writeToAllInactive(channels: self.channels, allocator: channel.allocator, message: "(ChatServer) - Client disconnected\n")
             }
         }
-        context.fireChannelInactive()
+//        context.fireChannelInactive()
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
