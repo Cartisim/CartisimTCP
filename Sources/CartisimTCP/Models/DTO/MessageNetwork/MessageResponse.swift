@@ -5,12 +5,12 @@ struct ChatroomRequest: Codable {
     var userID: String
     var name: String
     var message: String
-    var accessToken: String
-    var refreshToken: String
+    var accessToken: String?
+    var refreshToken: String?
     var sessionID: String
     var chatSessionID: String
     
-    init(avatar: String, userID: String, name: String, message: String, accessToken: String, refreshToken: String, sessionID: String, chatSessionID: String) {
+    init(avatar: String, userID: String, name: String, message: String, accessToken: String?, refreshToken: String?, sessionID: String, chatSessionID: String) {
         self.avatar = avatar
         self.userID = userID
         self.name = name
