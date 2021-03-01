@@ -71,18 +71,19 @@ final class ChatHandler: ChannelInboundHandler {
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
         print(received, "Received On Post Message")
-        postMessage(context: context, buffer: buffer)
+        try! postMessage(context: context, buffer: buffer)
     }
     
-    fileprivate func postMessage(context: ChannelHandlerContext, buffer: ByteBuffer) {
+    fileprivate func postMessage(context: ChannelHandlerContext, buffer: ByteBuffer) throws {
         do {
             guard let object = try? JSONDecoder().decode(EncryptedAuthRequest.self, from: buffer) else {return}
             guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
             var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
-            request.headers.add(contentsOf: Headers.headers(token: decryptedObject.accessToken))
+            guard let access = decryptedObject.accessToken else { throw AuthenticationError.refreshTokenOrUserNotFound("Refresh Token Not Found") }
+            request.headers.add(contentsOf: Headers.headers(token: access))
             guard let body = try? JSONEncoder().encode(object) else {return}
             request.body = .data(body)
-            TCPServer.httpClient?.execute(request: request).map { result in
+            TCPServer.httpClient?.execute(request: request).flatMapThrowing { result in
                 if result.status == .ok {
                     print(result, "Response")
                     self.channelsSyncQueue.async {
@@ -93,7 +94,8 @@ final class ChatHandler: ChannelInboundHandler {
                 } else {
                     print(result, "Remote Error")
                     if result.status == .unauthorized {
-                        self.refreshToken(context: context, token: decryptedObject.refreshToken, object: object)
+                        guard let refresh = decryptedObject.refreshToken else { throw AuthenticationError.refreshTokenOrUserNotFound("Refresh Token Not Found") }
+                        self.refreshToken(context: context, token: refresh, object: object)
                     }
                 }
             }.whenFailure { (error) in
@@ -131,7 +133,8 @@ final class ChatHandler: ChannelInboundHandler {
                     do {
                         var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
                         request.headers.add(contentsOf: Headers.headers(token:decryptedRefreshObject.accessToken))
-                        let token = RefreshToken(refreshToken: decryptedObject.refreshToken)
+                        guard let refresh = decryptedObject.refreshToken else { throw AuthenticationError.refreshTokenOrUserNotFound("Refresh Token Not Found") }
+                        let token = RefreshToken(refreshToken: refresh)
                         guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
                         
                         request.body = .data(refreshBody)
