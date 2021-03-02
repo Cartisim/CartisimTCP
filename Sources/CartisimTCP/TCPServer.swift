@@ -3,6 +3,7 @@ import NIO
 import Dispatch
 import NIOSSL
 import AsyncHTTPClient
+import NIOExtras
 
 public class TCPServer {
     
@@ -24,10 +25,14 @@ public class TCPServer {
             
             .childChannelInitializer { channel in
                 channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-//                channel.pipeline.addHandler(ByteToMessageHandler(LineDelimiterCodec())).flatMap { v in
-                    channel.pipeline.addHandler(self.chatHandler)
+                    //                channel.pipeline.addHandler(ByteToMessageHandler(LineDelimiterCodec())).flatMap { v in
+                    channel.pipeline.addHandler(NIOExtras.DebugInboundEventsHandler()).flatMap { v in
+                        channel.pipeline.addHandler(NIOExtras.DebugOutboundEventsHandler()).flatMap { v in
+                            channel.pipeline.addHandler(self.chatHandler)
+                        }
+                    }
                 }
-//                }
+                //                }
             }
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         #else
