@@ -71,11 +71,7 @@ final class ChatHandler: ChannelInboundHandler {
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
         print(received, "Received On Post Message")
-        do {
-        try postMessage(context: context, buffer: buffer)
-        } catch {
-            print(error, "Error Posting Message")
-        }
+        try! postMessage(context: context, buffer: buffer)
     }
     
     fileprivate func postMessage(context: ChannelHandlerContext, buffer: ByteBuffer) throws {
@@ -143,6 +139,7 @@ final class ChatHandler: ChannelInboundHandler {
                                 self.channelsSyncQueue.async {
                                     guard let data = result.body else {return}
                                     self.writeToAll(channels: self.channels, buffer: data)
+                                    
                                 }
                             } else {
                                 print(result, "Remote Error")
