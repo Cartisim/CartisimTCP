@@ -71,7 +71,11 @@ final class ChatHandler: ChannelInboundHandler {
         guard let received = read.readString(length: read.readableBytes) else {return}
         buffer.writeString("\(received)")
         print(received, "Received On Post Message")
-        try! postMessage(context: context, buffer: buffer)
+        do {
+        try postMessage(context: context, buffer: buffer)
+        } catch {
+            print(error, "Error Posting Message")
+        }
     }
     
     fileprivate func postMessage(context: ChannelHandlerContext, buffer: ByteBuffer) throws {
@@ -85,7 +89,7 @@ final class ChatHandler: ChannelInboundHandler {
             request.body = .data(body)
             TCPServer.httpClient?.execute(request: request).flatMapThrowing { result in
                 if result.status == .ok {
-                    print(result, "Response")
+                    print(result.status, "Response")
                     self.channelsSyncQueue.async {
                         guard let data = result.body else {return}
                         self.writeToAll(channels: self.channels, buffer: data)
@@ -111,14 +115,13 @@ final class ChatHandler: ChannelInboundHandler {
         request.headers.add(contentsOf: Headers.headers(token: token))
         guard let body = try? JSONEncoder().encode(object) else {return}
         request.body = .data(body)
-        TCPServer.httpClient?.execute(request: request).map { [weak self] result in
-            guard let strongSelf = self else {return}
+        TCPServer.httpClient?.execute(request: request).map { result in
             if result.status == .ok {
                 print(result, "Response")
-                strongSelf.channelsSyncQueue.async {
+                self.channelsSyncQueue.async {
                     guard let data = result.body else {return}
                     
-                    strongSelf.writeToAll(channels: strongSelf.channels.filter { id == $0.key }, buffer: data)
+                    self.writeToAll(channels: self.channels.filter { id == $0.key }, buffer: data)
                     
                     guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
                     
@@ -135,12 +138,11 @@ final class ChatHandler: ChannelInboundHandler {
                         guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
                         
                         request.body = .data(refreshBody)
-                        TCPServer.httpClient?.execute(request: request).map { [weak self] result in
-                            guard let strongSelf = self else {return}
+                        TCPServer.httpClient?.execute(request: request).map { result in
                             if result.status == .ok {
-                                strongSelf.channelsSyncQueue.async {
+                                self.channelsSyncQueue.async {
                                     guard let data = result.body else {return}
-                                    strongSelf.writeToAll(channels: strongSelf.channels, buffer: data)
+                                    self.writeToAll(channels: self.channels, buffer: data)
                                 }
                             } else {
                                 print(result, "Remote Error")
