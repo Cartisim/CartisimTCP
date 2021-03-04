@@ -88,7 +88,6 @@ final class ChatHandler: ChannelInboundHandler {
                     print(result, "Response")
                     self.channelsSyncQueue.async {
                         guard let data = result.body else {return}
-                        print(self.channels, "Channels")
                         self.writeToAll(channels: self.channels, buffer: data)
                     }
                 } else {
@@ -112,13 +111,14 @@ final class ChatHandler: ChannelInboundHandler {
         request.headers.add(contentsOf: Headers.headers(token: token))
         guard let body = try? JSONEncoder().encode(object) else {return}
         request.body = .data(body)
-        TCPServer.httpClient?.execute(request: request).map { result in
+        TCPServer.httpClient?.execute(request: request).map { [weak self] result in
+            guard let strongSelf = self else {return}
             if result.status == .ok {
                 print(result, "Response")
-                self.channelsSyncQueue.async {
+                strongSelf.channelsSyncQueue.async {
                     guard let data = result.body else {return}
                     
-                    self.writeToAll(channels: self.channels.filter { id == $0.key }, buffer: data)
+                    strongSelf.writeToAll(channels: strongSelf.channels.filter { id == $0.key }, buffer: data)
                     
                     guard let decryptedObject = CartisimCrypto.decryptableResponse(ChatroomRequest.self, string: object.encryptedObject) else {return}
                     
@@ -127,9 +127,6 @@ final class ChatHandler: ChannelInboundHandler {
                     
                     
                     guard let decryptedRefreshObject = CartisimCrypto.decryptableResponse(RefreshRequest.self, string: refreshObject!.encryptedObject) else {return}
-                    
-                    
-                    print(decryptedObject, decryptedRefreshObject, "OBJECTS __________")
                     do {
                         var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
                         request.headers.add(contentsOf: Headers.headers(token:decryptedRefreshObject.accessToken))
@@ -138,14 +135,12 @@ final class ChatHandler: ChannelInboundHandler {
                         guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
                         
                         request.body = .data(refreshBody)
-                        TCPServer.httpClient?.execute(request: request).map { result in
+                        TCPServer.httpClient?.execute(request: request).map { [weak self] result in
+                            guard let strongSelf = self else {return}
                             if result.status == .ok {
-                                print(result, "Response")
-                                self.channelsSyncQueue.async {
+                                strongSelf.channelsSyncQueue.async {
                                     guard let data = result.body else {return}
-                                    print(self.channels, "Channels")
-                                    self.writeToAll(channels: self.channels, buffer: data)
-                                    
+                                    strongSelf.writeToAll(channels: strongSelf.channels, buffer: data)
                                 }
                             } else {
                                 print(result, "Remote Error")
@@ -179,4 +174,3 @@ final class ChatHandler: ChannelInboundHandler {
         channels.forEach { $0.value.writeAndFlush(buffer, promise: nil) }
     }
 }
-
