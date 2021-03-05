@@ -54,8 +54,6 @@ public class TCPServer {
             
             .childChannelInitializer { channel in
                 channel.pipeline.addHandlers([
-                    NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                    NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
                     NIOSSLServerHandler(context: sslContext!)
                 ])
                 .flatMap {
@@ -63,6 +61,8 @@ public class TCPServer {
                 }
                 .flatMap {
                     channel.pipeline.addHandlers([
+                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
                         self.chatHandler,
                         NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
                         NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
