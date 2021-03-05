@@ -9,7 +9,6 @@ public class TCPServer {
     
     private var host: String?
     private var port: Int?
-    let chatHandler = ChatHandler()
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     static var httpClient: HTTPClient?
     
@@ -20,22 +19,26 @@ public class TCPServer {
     }
     
     private var serverBootstrap: ServerBootstrap {
-                #if DEBUG || LOCAL
-                return ServerBootstrap(group: group)
-        
-                    .childChannelInitializer { channel in
-                        channel.pipeline.addHandler(NIOExtras.DebugInboundEventsHandler()).flatMap { v in
-                            channel.pipeline.addHandler(NIOExtras.DebugOutboundEventsHandler()).flatMap { v in
-                                channel.pipeline.addHandler(BackPressureHandler()).flatMap { v in
-                                    //                channel.pipeline.addHandler(ByteToMessageHandler(LineDelimiterCodec())).flatMap { v in
-                                    channel.pipeline.addHandler(self.chatHandler)
-                                }
-                            }
-                        }
-                        //                }
-                    }
-                    .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-                #else
+        #if DEBUG || LOCAL
+        return ServerBootstrap(group: group)
+            
+            .childChannelInitializer { channel in
+                channel.pipeline.addHandlers([
+                    NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                    NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                    BackPressureHandler()
+                    
+                ])
+                .flatMap {
+                    channel.pipeline.addHandlers([
+                        ChatHandler(),
+                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
+                    ])
+                }
+            }
+            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        #else
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/fullchain.pem"
         let keyPath = basePath + "/privkey.pem"
@@ -49,22 +52,24 @@ public class TCPServer {
             
             
             .childChannelInitializer { channel in
-                channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext!))
-                    .flatMap {
-                        channel.pipeline.addHandler(BackPressureHandler())
-                    }
-                    .flatMap {
-                        channel.pipeline.addHandlers([
-                            NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                            NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                            self.chatHandler,
-                            NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                            NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
-                        ])
-                    }
+                channel.pipeline.addHandlers([
+                    NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                    NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                    NIOSSLServerHandler(context: sslContext!)
+                ])
+                .flatMap {
+                    channel.pipeline.addHandler(BackPressureHandler())
+                }
+                .flatMap {
+                    channel.pipeline.addHandlers([
+                        ChatHandler(),
+                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
+                    ])
+                }
             }
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-                #endif
+        #endif
     }
     
     
