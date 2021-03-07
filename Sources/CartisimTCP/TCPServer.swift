@@ -20,26 +20,26 @@ public class TCPServer {
     }
     
     private var serverBootstrap: ServerBootstrap {
-                #if DEBUG || LOCAL
-                return ServerBootstrap(group: group)
-        
-                    .childChannelInitializer { channel in
-                        channel.pipeline.addHandlers([
-                            NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                            NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                                                        BackPressureHandler()
-                                                     
-                                                     ])
-                            .flatMap {
-                                channel.pipeline.addHandlers([
-                                    self.chatHandler,
-                                    NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                                    NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
-                                ])
-                            }
-                    }
-                    .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-                #else
+        #if DEBUG || LOCAL
+        return ServerBootstrap(group: group)
+            
+            .childChannelInitializer { channel in
+                channel.pipeline.addHandlers([
+                    NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                    NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                    BackPressureHandler()
+                    
+                ])
+                .flatMap {
+                    channel.pipeline.addHandlers([
+                        self.chatHandler,
+                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
+                    ])
+                }
+            }
+            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        #else
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/fullchain.pem"
         let keyPath = basePath + "/privkey.pem"
@@ -61,18 +61,13 @@ public class TCPServer {
                 }
                 .flatMap {
                     channel.pipeline.addHandlers([
-                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                        self.chatHandler,
-                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
+                        self.chatHandler
                     ])
                 }
             }
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-                #endif
+        #endif
     }
-    
     
     func shutdown() {
         do {

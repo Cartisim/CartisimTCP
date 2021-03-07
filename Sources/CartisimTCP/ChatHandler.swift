@@ -139,7 +139,6 @@ final class ChatHandler: ChannelInboundHandler {
                                 self.channelsSyncQueue.async {
                                     guard let data = result.body else {return}
                                     self.writeToAll(channels: self.channels, buffer: data)
-                                    
                                 }
                             } else {
                                 print(result, "Remote Error")
