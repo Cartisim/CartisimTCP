@@ -31,11 +31,11 @@ public class CartisimCrypto: NSObject {
         return object
     }
     
-    static func encryptableBody<T: Codable>(body: T) -> EncryptedAuthRequest {
+    static func encryptableBody<T: Codable>(body: T) -> EncryptedObject {
         let key = CartisimCrypto.userInfoKey(KeyData.shared.keychainEncryptionKey)
         let bodyData = try? CartisimCrypto.encryptCodableObject(body, usingKey: key)
-        let encryptedRequest = EncryptedAuthRequest(encryptedObject: bodyData!)
-        return encryptedRequest
+        let encryptedObjectString = EncryptedObject(encryptedObjectString: bodyData!)
+        return encryptedObjectString
     }
     
     static func decryptableResponse<T: Codable>(_ body: T.Type, string: String) -> T? {

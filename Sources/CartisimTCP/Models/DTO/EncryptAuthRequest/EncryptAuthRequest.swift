@@ -1,13 +1,12 @@
 import Foundation
 
-struct EncryptedAuthRequest: Codable {
-    var encryptedObject: String
+struct EncryptedObject: Codable {
+     var encryptedObjectString: String
     
-    func requestEncryptedAuthRequestObject() -> EncryptedAuthRequest {
-        return EncryptedAuthRequest(encryptedObject: self.encryptedObject)
+     init(encryptedObjectString: String) {
+        self.encryptedObjectString = encryptedObjectString
     }
 }
-
 
 struct RefreshToken: Codable {
     var refreshToken: String

@@ -5,11 +5,11 @@ import NIOSSL
 import AsyncHTTPClient
 import NIOExtras
 
-public class TCPServer {
+class TCPServer {
     
     private var host: String?
     private var port: Int?
-    let chatHandler = ChatHandler()
+    let chatHandler = ChatHandler<EncryptedObject>()
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     static var httpClient: HTTPClient?
     
@@ -19,27 +19,33 @@ public class TCPServer {
         TCPServer.httpClient = HTTPClient(eventLoopGroupProvider: .shared(group))
     }
     
+    
+    
+    
+    
+    /* if we need to test if everything is flushing we can user these handlers
+     NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+     NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+     */
+    
     private var serverBootstrap: ServerBootstrap {
-//        #if DEBUG || LOCAL
-//        return ServerBootstrap(group: group)
-//
-//            .childChannelInitializer { channel in
-//                channel.pipeline.addHandlers([
-//                    NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-//                    NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-//                    BackPressureHandler()
-//
-//                ])
-//                .flatMap {
-//                    channel.pipeline.addHandlers([
-//                        self.chatHandler,
-//                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-//                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) })
-//                    ])
-//                }
-//            }
-//            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-//        #else
+        #if DEBUG || LOCAL
+        return ServerBootstrap(group: group)
+            
+            .childChannelInitializer { channel in
+                channel.pipeline.addHandlers([
+                    BackPressureHandler()
+                ])
+                .flatMap {
+                    channel.pipeline.addHandlers([
+                        ByteToMessageHandler(LineBasedFrameDecoder()),
+                        self.chatHandler,
+                        MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
+                    ])
+                }
+            }
+            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        #else
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/fullchain.pem"
         let keyPath = basePath + "/privkey.pem"
@@ -51,20 +57,21 @@ public class TCPServer {
         
         return ServerBootstrap(group: group)
             
-            
             .childChannelInitializer { channel in
                 channel.pipeline.addHandlers([
-                    NIOSSLServerHandler(context: sslContext!)
+                    NIOSSLServerHandler(context: sslContext!),
+                    BackPressureHandler()
                 ])
                 .flatMap {
-                    channel.pipeline.addHandler(BackPressureHandler())
-                }
-                .flatMap {
-                    channel.pipeline.addHandler(self.chatHandler)
+                    channel.pipeline.addHandlers([
+                        ByteToMessageHandler(LineBasedFrameDecoder()),
+                        self.chatHandler,
+                        MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
+                    ])
                 }
             }
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-//        #endif
+        #endif
     }
     
     func shutdown() {
@@ -76,6 +83,7 @@ public class TCPServer {
         }
         print("closed server")
     }
+    
     
     func run() throws {
         guard let host = host else {
@@ -148,3 +156,4 @@ public class TCPServer {
         }
     }
 }
+

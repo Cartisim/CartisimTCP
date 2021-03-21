@@ -1,6 +1,6 @@
 import Foundation
 
-struct ChatroomRequest: Codable {
+struct MessageData: Codable {
     var avatar: String?
     var userID: String
     var name: String
@@ -21,6 +21,8 @@ struct ChatroomRequest: Codable {
         self.chatSessionID = chatSessionID
     }
 }
+
+
 
 
 struct RefreshRequest: Codable {
