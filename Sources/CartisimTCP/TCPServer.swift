@@ -29,23 +29,23 @@ class TCPServer {
      */
     
     private var serverBootstrap: ServerBootstrap {
-        #if DEBUG || LOCAL
-        return ServerBootstrap(group: group)
-            
-            .childChannelInitializer { channel in
-                channel.pipeline.addHandlers([
-                    BackPressureHandler()
-                ])
-                .flatMap {
-                    channel.pipeline.addHandlers([
-                        ByteToMessageHandler(LineBasedFrameDecoder()),
-                        self.chatHandler,
-                        MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
-                    ])
-                }
-            }
-            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        #else
+//        #if DEBUG || LOCAL
+//        return ServerBootstrap(group: group)
+//
+//            .childChannelInitializer { channel in
+//                channel.pipeline.addHandlers([
+//                    BackPressureHandler()
+//                ])
+//                .flatMap {
+//                    channel.pipeline.addHandlers([
+//                        ByteToMessageHandler(LineBasedFrameDecoder()),
+//                        self.chatHandler,
+//                        MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
+//                    ])
+//                }
+//            }
+//            .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+//        #else
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/fullchain.pem"
         let keyPath = basePath + "/privkey.pem"
@@ -71,7 +71,7 @@ class TCPServer {
                 }
             }
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        #endif
+//        #endif
     }
     
     func shutdown() {
