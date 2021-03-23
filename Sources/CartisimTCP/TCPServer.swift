@@ -61,13 +61,9 @@ class TCPServer {
                 ])
                 .flatMap {
                     channel.pipeline.addHandlers([
-                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
                         ByteToMessageHandler(LineBasedFrameDecoder()),
                         self.chatHandler,
-                        MessageToByteHandler(JSONMessageEncoder<EncryptedObject>()),
-                        NIOExtras.DebugInboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
-                        NIOExtras.DebugOutboundEventsHandler(logger: { event, context in print("\(context.channel): \(context.name): \(event)"); fflush(stdout) }),
+                        MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
                     ])
                 }
             }
@@ -157,4 +153,3 @@ class TCPServer {
         }
     }
 }
-
