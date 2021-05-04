@@ -4,6 +4,6 @@
 /*.xcodeproj
 xcuserdata/
 privkey.pem
-key.pem
 fullchain.pem
 cert.pem
+key.pem
