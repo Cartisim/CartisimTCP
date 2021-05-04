@@ -3,8 +3,11 @@
 //#endif
 
 
+#if DEBUG || LOCAL
+let server = TCPServer(host: "127.0.0.1", port: 8081)
+#else
 let server = TCPServer(host: "0.0.0.0", port: 8081)
-//let server = TCPServer(host: "127.0.0.1", port: 8081)
+#endif
 do {
     print("Server is running")
     try server.run()
