@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "CartisimTCP",
+    name: "cartisim-nio-server",
     platforms: [
         .macOS(.v10_15)
     ],

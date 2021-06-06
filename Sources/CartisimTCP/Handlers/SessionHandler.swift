@@ -17,7 +17,7 @@ import Crypto
 ///   * `Channel`s are thread-safe, `ChannelHandlerContext`s are not.
 ///
 /// As we are using an `MultiThreadedEventLoopGroup` that uses more then 1 thread we need to ensure proper
-/// synchronization on the shared state in the `ChatHandler` (as the same instance is shared across
+/// synchronization on the shared state in the `SessionHandler` (as the same instance is shared across
 /// child `Channel`s). For this a serial `DispatchQueue` is used when we modify the shared state (the `Dictionary`).
 /// As `ChannelHandlerContext` is not thread-safe we need to ensure we only operate on the `Channel` itself while
 /// `Dispatch` executed the submitted block.
@@ -25,7 +25,7 @@ struct OurDate: Decodable {
     let ourString: String
 }
 
-final class ChatHandler<Message: Decodable>: ChannelInboundHandler {
+final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
     typealias InboundOut = Message
     
@@ -37,7 +37,10 @@ final class ChatHandler<Message: Decodable>: ChannelInboundHandler {
     
     private let channelsSyncQueue = DispatchQueue(label: "channelsQueue")
     private var channels: [ObjectIdentifier: Channel] = [:]
-    
+    var userID: UserID? {
+        guard case .registered(let id, let info) = state else { return nil }
+        return UserID(id: id, user: info.username, host: info.servername ?? origin)
+    }
     
     func channelActive(context: ChannelHandlerContext) {
         let channel = context.channel

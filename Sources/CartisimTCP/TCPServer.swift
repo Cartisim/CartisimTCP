@@ -9,7 +9,7 @@ class TCPServer {
     
     private var host: String?
     private var port: Int?
-    let chatHandler = ChatHandler<EncryptedObject>()
+    let sessionHandler = SessionHandler<EncryptedObject>()
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     static var httpClient: HTTPClient?
     
@@ -36,7 +36,7 @@ class TCPServer {
                 .flatMap {
                     channel.pipeline.addHandlers([
                         ByteToMessageHandler(LineBasedFrameDecoder()),
-                        self.chatHandler,
+                        self.sessionHandler,
                         MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
                     ])
                 }
@@ -62,7 +62,7 @@ class TCPServer {
                 .flatMap {
                     channel.pipeline.addHandlers([
                         ByteToMessageHandler(LineBasedFrameDecoder()),
-                        self.chatHandler,
+                        self.sessionHandler,
                         MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
                     ])
                 }
