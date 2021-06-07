@@ -5,17 +5,27 @@ import NIOSSL
 import AsyncHTTPClient
 import NIOExtras
 
+extension SocketAddress {
+    
+    var ircOrigin : String {
+        return ""
+    }
+}
+
+
 class TCPServer {
     
     private var host: String?
     private var port: Int?
-    let sessionHandler = SessionHandler<EncryptedObject>()
+    private var origin: String?
+    public private(set) var context: ServerContext?
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     static var httpClient: HTTPClient?
     
-    init(host: String, port: Int) {
+    init(host: String, port: Int, origin: String) {
         self.host = host
         self.port = port
+        self.origin = origin
         TCPServer.httpClient = HTTPClient(eventLoopGroupProvider: .shared(group))
     }
     
@@ -26,9 +36,25 @@ class TCPServer {
      */
     
     private var serverBootstrap: ServerBootstrap {
+        
+        let address : SocketAddress
+        var origin = ""
+        
+        if let host = self.host, let port = self.port {
+            
+            address = try! SocketAddress.makeAddressResolvingHost(host, port: port)
+            
+            origin = {
+                let s = self.origin ?? address.ircOrigin
+                if !s.isEmpty { return s }
+                if let s = self.host { return s }
+                return "no-origin" // TBD
+            }()
+        }
+        
         #if DEBUG || LOCAL
         return ServerBootstrap(group: group)
-
+            
             .childChannelInitializer { channel in
                 channel.pipeline.addHandlers([
                     BackPressureHandler()
@@ -36,7 +62,7 @@ class TCPServer {
                 .flatMap {
                     channel.pipeline.addHandlers([
                         ByteToMessageHandler(LineBasedFrameDecoder()),
-                        self.sessionHandler,
+                        SessionHandler<EncryptedObject>(serverContext: ServerContext(origin: origin)),
                         MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
                     ])
                 }
@@ -62,7 +88,7 @@ class TCPServer {
                 .flatMap {
                     channel.pipeline.addHandlers([
                         ByteToMessageHandler(LineBasedFrameDecoder()),
-                        self.sessionHandler,
+                        SessionHandler<EncryptedObject>(serverContext: ServerContext(origin: origin)),
                         MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
                     ])
                 }

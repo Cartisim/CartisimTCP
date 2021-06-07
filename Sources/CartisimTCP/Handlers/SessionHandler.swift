@@ -30,13 +30,83 @@ final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
     typealias InboundOut = Message
     
     private let jsonDecoder: JSONDecoder
+    //    static let serverCapabilities: Set<String> = ["multi-prefix"]
+    //    var activeCapabilities = SessionHandler.serverCapabilities
+        private let serverContext: ServerContext
+        private let channelsSyncQueue = DispatchQueue(label: "channelsQueue")
+        private var channels: [ObjectIdentifier: Channel] = [:]
     
-    init(jsonDecoder: JSONDecoder = JSONDecoder()) {
+    init(jsonDecoder: JSONDecoder = JSONDecoder(), serverContext: ServerContext) {
         self.jsonDecoder = jsonDecoder
+        self.serverContext = serverContext
     }
     
-    private let channelsSyncQueue = DispatchQueue(label: "channelsQueue")
-    private var channels: [ObjectIdentifier: Channel] = [:]
+    
+    public enum Error: Swift.Error {
+        case disconnected
+        case internalInconsistency
+    }
+    
+    public enum State: Equatable {
+        case initial
+        case idAssigned(DMIdentifier)
+        case userSet   (UserInfo)
+        case registered(DMIdentifier, UserInfo)
+        
+        var id: DMIdentifier? {
+            switch self {
+            case .initial, .userSet: return nil
+            case .idAssigned(let id): return id
+            case .registered(let id, _): return id
+            }
+        }
+        
+        var userInfo: UserInfo? {
+            switch self {
+            case .initial, .idAssigned: return nil
+            case .userSet(let info): return info
+            case .registered(_, let info): return info
+            }
+        }
+        
+        var isRegistered: Bool {
+            guard case .registered = self else { return false }
+            return true
+        }
+        
+        mutating func changeID(to id: DMIdentifier) {
+            switch self {
+            case .initial:                 self = .idAssigned(id)
+            case .idAssigned:              self = .idAssigned(id)
+            case .userSet      (let info): self = .registered(id, info)
+            case .registered(_, let info): self = .registered(id, info)
+            }
+        }
+        
+        public static func ==(lhs: State, rhs: State) -> Bool {
+            switch (lhs, rhs) {
+            case (.initial, .initial):
+                return true
+            case (.idAssigned(let lhs), .idAssigned(let rhs)):
+                return lhs == rhs
+            case (.userSet(let lhs), .userSet(let rhs)):
+                return lhs == rhs
+            case (.registered(let lu, let lui), .registered(let ru, let rui)):
+                return lu == ru && lui == rui
+            default: return false
+            }
+        }
+    }
+    
+    var state = State.initial {
+        didSet {
+            if oldValue.isRegistered != state.isRegistered && state.isRegistered {
+//                sendWelecome()
+//                sendCurrentMode()
+            }
+        }
+    }
+
     var userID: UserID? {
         guard case .registered(let id, let info) = state else { return nil }
         return UserID(id: id, user: info.username, host: info.servername ?? origin)
@@ -195,4 +265,7 @@ final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
     private func writeToAll(channels: [ObjectIdentifier: Channel], object: Message) {
         channels.forEach { $0.value.writeAndFlush(object, promise: nil) }
     }
+    
+    
+    public var origin: String? { return serverContext.origin }
 }
