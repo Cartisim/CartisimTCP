@@ -1,7 +1,7 @@
 import Foundation
 
 
-struct Message: Codable, CustomStringConvertible {
+internal struct Message: Codable, CustomStringConvertible {
     
      enum CodingKeys: String, CodingKey {
         case origin, target, command, arguments
@@ -41,19 +41,33 @@ struct Message: Codable, CustomStringConvertible {
         return ms
     }
     
-    //Mark: Internal Storage
+    // Mark: - Internal Storage
+    
+    @usableFromInline
+    mutating func copyStorageIfNeeded() {
+        if !isKnownUniquelyReferenced(&_storage) {
+            _storage = _Storage(_storage)
+        }
+    }
     
     @usableFromInline
     class _Storage {
         @usableFromInline var origin: String?
         @usableFromInline var target: String?
-        @usableFromInline var command: CommandLine
+        @usableFromInline var command: Command
         
         @usableFromInline
         init(origin: String?, target: String?, command: Command) {
             self.origin = origin
             self.target = target
             self.command = command
+        }
+        
+        @usableFromInline
+        init(_ other: _Storage) {
+            self.origin = other.origin
+            self.target = other.target
+            self.command = other.command
         }
     }
     

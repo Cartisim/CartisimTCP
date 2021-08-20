@@ -4,6 +4,7 @@ import Dispatch
 import NIOSSL
 import AsyncHTTPClient
 import NIOExtras
+import Logging
 
 extension SocketAddress {
     
@@ -39,7 +40,7 @@ class TCPServer {
         
         let address : SocketAddress
         var origin = ""
-        
+        let logger = Logger(label: "com.cartisim.io")
         if let host = self.host, let port = self.port {
             
             address = try! SocketAddress.makeAddressResolvingHost(host, port: port)
@@ -62,7 +63,8 @@ class TCPServer {
                 .flatMap {
                     channel.pipeline.addHandlers([
                         ByteToMessageHandler(LineBasedFrameDecoder()),
-                        SessionHandler<EncryptedObject>(serverContext: ServerContext(origin: origin)),
+//                        SessionHandler<EncryptedObject>(serverContext: ServerContext(origin: origin)),
+                        SessionHandler(logger: logger, serverContext: ServerContext(origin: "", logger: logger)),
                         MessageToByteHandler(JSONMessageEncoder<EncryptedObject>())
                     ])
                 }

@@ -8,6 +8,7 @@ import CryptoKit
 #else
 import Crypto
 #endif
+import Logging
 
 
 
@@ -25,19 +26,38 @@ struct OurDate: Decodable {
     let ourString: String
 }
 
-final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
-    typealias InboundIn = ByteBuffer
+final class SessionHandler: ChannelInboundHandler, ServerMessageTarget {
+
+    
+    typealias InboundIn = Message
     typealias InboundOut = Message
     
     private let jsonDecoder: JSONDecoder
-    //    static let serverCapabilities: Set<String> = ["multi-prefix"]
-    //    var activeCapabilities = SessionHandler.serverCapabilities
-        private let serverContext: ServerContext
-        private let channelsSyncQueue = DispatchQueue(label: "channelsQueue")
-        private var channels: [ObjectIdentifier: Channel] = [:]
+    internal let serverContext: ServerContext
+    private let channelsSyncQueue = DispatchQueue(label: "channelsQueue")
+    private var channels: [ObjectIdentifier: Channel] = [:]
+    var channel   : NIO.Channel?
+    var eventLoop : NIO.EventLoop?
+    let logger    : Logger
     
-    init(jsonDecoder: JSONDecoder = JSONDecoder(), serverContext: ServerContext) {
+    var mode = UserMode()
+
+    static let serverCapabilities : Set<String> = [ "multi-prefix" ]
+    var activeCapabilities = SessionHandler.serverCapabilities
+
+    var joinedChannels = Set<ChannelName>()
+    
+
+    var id      : DMIdentifier? { return state.id }
+    var userID    : UserID? {
+        guard case .registered(let id, let info) = state else { return nil }
+        return UserID(id: id, user: info.username,
+                      host: info.servername ?? origin)
+    }
+    
+    init(jsonDecoder: JSONDecoder = JSONDecoder(), logger: Logger, serverContext: ServerContext) {
         self.jsonDecoder = jsonDecoder
+        self.logger = logger
         self.serverContext = serverContext
     }
     
@@ -101,16 +121,68 @@ final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
     var state = State.initial {
         didSet {
             if oldValue.isRegistered != state.isRegistered && state.isRegistered {
-//                sendWelecome()
-//                sendCurrentMode()
+                //                sendWelecome()
+                //                sendCurrentMode()
             }
         }
     }
-
-    var userID: UserID? {
-        guard case .registered(let id, let info) = state else { return nil }
-        return UserID(id: id, user: info.username, host: info.servername ?? origin)
-    }
+    
+    
+    public var origin : String? { return serverContext.origin }
+    public var target : String  { return id?.stringValue ?? "*" }
+    
+    func sendMessages<T>(_ messages: T, promise: EventLoopPromise<Void>?) where T : Collection, T.Element == Message {
+          // TBD: this looks a little more difficult than necessary.
+          guard let channel = channel else {
+            #if swift(>=5) // NIO 2 API
+              promise?.fail(Error.disconnected)
+            #else // NIO 1 API
+              promise?.fail(error: Error.disconnected)
+            #endif
+            return
+          }
+          
+          guard channel.eventLoop.inEventLoop else {
+            return channel.eventLoop.execute {
+              self.sendMessages(messages, promise: promise)
+            }
+          }
+          
+          let count = messages.count
+          if count == 0 {
+            #if swift(>=5) // NIO 2 API
+              promise?.succeed(())
+            #else
+              promise?.succeed(result: ())
+            #endif
+            return
+          }
+          if count == 1 {
+            return channel.writeAndFlush(messages.first!, promise: promise)
+          }
+          
+          guard let promise = promise else {
+            for message in messages {
+              channel.write(message, promise: nil)
+            }
+            return channel.flush()
+          }
+          
+          #if swift(>=5) // NIO 2 API
+            EventLoopFuture<Void>
+              .andAllSucceed(messages.map { channel.write($0) },
+                             on: promise.futureResult.eventLoop)
+              .cascade(to: promise)
+          #else
+            EventLoopFuture<Void>
+              .andAll(messages.map { channel.write($0) },
+                      eventLoop: promise.futureResult.eventLoop)
+              .cascade(promise: promise)
+          #endif
+          
+          channel.flush()
+        }
+    
     
     func channelActive(context: ChannelHandlerContext) {
         let channel = context.channel
@@ -145,110 +217,80 @@ final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let bytes = self.unwrapInboundIn(data)
-//                var buffer = context.channel.allocator.buffer(capacity: bytes.readableBytes + 64)
-//                guard let received = buffer.readString(length: bytes.readableBytes) else {return}
-//                buffer.writeString("\(bytes)")
-//                print(received, "Received On Post Message")
+        let message = self.unwrapInboundIn(data)
         do {
-            try postMessage(context: context, bytes: bytes)
-        } catch {
+          try irc_msgSend(message)
+        }
+        catch let error as ServerError {
+          handleError(error, in: context)
+        }
+        catch {
+          errorCaught(context: context, error: error)
+        }
+    }
+    
+    func handleError(_ error: ServerError, in context: ChannelHandlerContext) {
+      switch error {
+        case .identifierInUse(let id):
+          sendError(.errorIdentityInUse, id.stringValue)
+        
+        case .noSuchIdentifier(let id):
+          sendError(.errorNoSuchDMID, id.stringValue)
+        
+        case .noSuchChannel(let channel):
+          sendError(.errorNoSuchChannel, channel.stringValue)
+
+        case .alreadyRegistered:
+          assert(id != nil, "ID not set, but 'already registered'?")
+          sendError(.errorAlreadyRegistered, id?.stringValue ?? "?")
+        
+        case .notRegistered:
+          sendError(.errorNotRegistered)
+        
+        case .cantChangeModeForOtherUsers:
+          sendError(.errorUsersDontMatch,
+                    message: "Can't change mode for other users")
+        
+        case .doesNotRespondTo(let message):
+          sendError(.errorUnknownCommand, message.command.commandAsString)
+      }
+    }
+
+    func handleError(_ error: ParserError, in context: ChannelHandlerContext) {
+      switch error {
+      case .invalidDMID(let id):
+          sendError(.errorErrorneusIdentity, id,
+                    "Invalid Identity")
+        
+        case .invalidArgumentCount(let command, _, _):
+          sendError(.errorNeedMoreParams, command,
+                    "Not enough parameters")
+        
+        case .invalidChannelName(let name):
+          sendError(.errorIllegalChannelName, name,
+                    "Illegal channel name")
+        
+        default:
+          logger.error("Protocol error, sending unknown cmd \(error)")
+          sendError(.errorUnknownCommand, // TODO
+                    "?",
+                    "Protocol error")
+      }
+    }
+    
+    internal func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
+      if let ircError = error as? ParserError {
+        switch ircError {
+          case .transportError, .notImplemented:
             context.fireErrorCaught(error)
+          default:
+            return handleError(ircError, in: context)
         }
+      }
+      
+      context.fireErrorCaught(error)
     }
-    
-    fileprivate func postMessage(context: ChannelHandlerContext, bytes: ByteBuffer) throws {
-        do {
-            guard let object = try? self.jsonDecoder.decode(Message.self, from: bytes) as? EncryptedObject else {return}
-            guard let decryptedObject = CartisimCrypto.decryptableResponse(MessageData.self, string: object.encryptedObjectString) else {return}
-            var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
-            guard let access = decryptedObject.accessToken else { throw AuthenticationError.refreshTokenOrUserNotFound("Refresh Token Not Found") }
-            request.headers.add(contentsOf: Headers.headers(token: access))
-            guard let body = try? JSONEncoder().encode(object) else {return}
-            request.body = .data(body)
-            TCPServer.httpClient?.execute(request: request).flatMapThrowing { result in
-                if result.status == .ok {
-                    print(result.status, "Response")
-                    self.channelsSyncQueue.async {
-                        do {
-                            guard let data = result.body else {return}
-                            let object = try self.jsonDecoder.decode(Message.self, from: data) as? EncryptedObject
-                            self.writeToAll(channels: self.channels, object: object as! Message)
-                        } catch {
-                            context.fireErrorCaught(error)
-                        }
-                    }
-                } else {
-                    print(result, "Remote Error")
-                    if result.status == .unauthorized {
-                        guard let refresh = decryptedObject.refreshToken else { throw AuthenticationError.refreshTokenOrUserNotFound("Refresh Token Not Found") }
-                        self.refreshToken(context: context, token: refresh, object: object)
-                    }
-                }
-            }.whenFailure { (error) in
-                print(error, "Error in Chat handler")
-            }
-        } catch {
-            print(error, "Error In HTTP Request")
-        }
-    }
-    
-    fileprivate func refreshToken(context: ChannelHandlerContext, token: String, object: EncryptedObject) {
-        let id = ObjectIdentifier(context.channel)
-        var request = try! HTTPClient.Request(url: "\(Constants.BASE_URL)auth/access-token", method: .POST)
-        request.headers.add(contentsOf: Headers.headers(token: token))
-        guard let body = try? JSONEncoder().encode(object) else {return}
-        request.body = .data(body)
-        TCPServer.httpClient?.execute(request: request).map { result in
-            if result.status == .ok {
-                print(result, "Response")
-                self.channelsSyncQueue.async {
-                    do {
-                        guard let data = result.body else {return}
-                        guard let object = try self.jsonDecoder.decode(Message.self, from: data) as? EncryptedObject else {return}
-                        self.writeToAll(channels: self.channels.filter { id == $0.key }, object: object as! Message)
-                        
-                        guard let decryptedObject = CartisimCrypto.decryptableResponse(MessageData.self, string: object.encryptedObjectString) else {return}
-                        guard let decryptedRefreshObject = CartisimCrypto.decryptableResponse(RefreshRequest.self, string: object.encryptedObjectString) else {return}
-                        
-                        var request = try HTTPClient.Request(url: "\(Constants.BASE_URL)post-message/\(decryptedObject.sessionID)", method: .POST)
-                        request.headers.add(contentsOf: Headers.headers(token:decryptedRefreshObject.accessToken))
-                        guard let refresh = decryptedObject.refreshToken else { throw AuthenticationError.refreshTokenOrUserNotFound("Refresh Token Not Found") }
-                        let token = RefreshToken(refreshToken: refresh)
-                        guard let refreshBody = try? JSONEncoder().encode(CartisimCrypto.encryptableBody(body: token.requestRefreshTokenObject())) else {return}
-                        
-                        request.body = .data(refreshBody)
-                        TCPServer.httpClient?.execute(request: request).map { result in
-                            print(result.status, "Post Message Status In Refresh Handler")
-                            if result.status == .ok {
-                                self.channelsSyncQueue.async {
-                                    do {
-                                        guard let data = result.body else {return}
-                                        let object = try self.jsonDecoder.decode(Message.self, from: data) as? EncryptedObject
-                                        self.writeToAll(channels: self.channels, object: object as! Message)
-                                    } catch {
-                                        context.fireErrorCaught(error)
-                                    }
-                                }
-                            } else {
-                                print(result, "Remote Error")
-                            }
-                        }.whenFailure { (error) in
-                            print(error, "Error in Chat handler")
-                        }
-                    } catch {
-                        context.fireErrorCaught(error)
-                    }
-                }
-            } else {
-                print(result.status, "Refresh Error")
-            }
-        }.whenFailure { (error) in
-            print(error, "Error in Chat handler")
-        }
-    }
-    
-    
+
     func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }
@@ -266,6 +308,4 @@ final class SessionHandler<Message: Decodable>: ChannelInboundHandler {
         channels.forEach { $0.value.writeAndFlush(object, promise: nil) }
     }
     
-    
-    public var origin: String? { return serverContext.origin }
 }
