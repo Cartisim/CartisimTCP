@@ -160,7 +160,7 @@ open class IRCServer {
         
         let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
             .map { NIOSSLCertificateSource.certificate($0) }
-        let tls = TLSConfiguration.forServer(certificateChain: certs, privateKey: .file(keyPath))
+        let tls = TLSConfiguration.makeServerConfiguration(certificateChain: certs, privateKey: .file(keyPath))
         let sslContext = try? NIOSSLContext(configuration: tls)
         #endif
         
