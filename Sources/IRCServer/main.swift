@@ -55,7 +55,6 @@ ircConfig.port   = config.ircURL?.port ?? DefaultIRCPort
 
 let ircServer = IRCServer(configuration: ircConfig)
 
-
 // MARK: - Setup Web Client Server
 
 let webConfig = IRCWebClientServer.Configuration(eventLoopGroup: loopGroup)

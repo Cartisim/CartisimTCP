@@ -124,6 +124,7 @@ open class IRCSessionHandler : ChannelInboundHandler,
   
   open func channelActive(context: ChannelHandlerContext) {
     assert(channel == nil, "channel is already set?!")
+      print("channel is active, \(context)")
     self.channel   = context.channel
     self.eventLoop = context.channel.eventLoop
     
@@ -137,6 +138,7 @@ open class IRCSessionHandler : ChannelInboundHandler,
   }
 
   open func channelInactive(context: ChannelHandlerContext) {
+      print("channel is inactive, \(context)")
     for channel in joinedChannels {
       server.partChannel(channel, session: self)
     }
@@ -163,6 +165,7 @@ open class IRCSessionHandler : ChannelInboundHandler,
   // MARK: - Reading
 
   open func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+      print("channel read")
     let message = self.unwrapInboundIn(data)
     do {
       try irc_msgSend(message)
@@ -229,6 +232,7 @@ open class IRCSessionHandler : ChannelInboundHandler,
   }
   
   open func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
+      print("errorCaught: \(error)")
     if let ircError = error as? IRCParserError {
       switch ircError {
         case .transportError, .notImplemented:
