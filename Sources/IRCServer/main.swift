@@ -57,20 +57,20 @@ let ircServer = IRCServer(configuration: ircConfig)
 
 // MARK: - Setup Web Client Server
 
-let webConfig = IRCWebClientServer.Configuration(eventLoopGroup: loopGroup)
-webConfig.host             = config.webURL?.host ?? ircConfig.host
-webConfig.port             = config.webURL?.port ?? 1337
-webConfig.ircHost          = ircConfig.host
-webConfig.ircPort          = ircConfig.port
-webConfig.externalHost     = config.extWebURL?.host ?? webConfig.host
-webConfig.externalPort     = config.extWebURL?.port ?? webConfig.port
-webConfig.autoJoinChannels = [ "#NIO", "#SwiftObjects", "#SwiftDE",
-                               "#LinkerKit" ]
-webConfig.autoSendMessages = [
-  ( "Eliza", "Moin" )
-]
-
-let webServer = IRCWebClientServer(configuration: webConfig)
+//let webConfig = IRCWebClientServer.Configuration(eventLoopGroup: loopGroup)
+//webConfig.host             = config.webURL?.host ?? ircConfig.host
+//webConfig.port             = config.webURL?.port ?? 1337
+//webConfig.ircHost          = ircConfig.host
+//webConfig.ircPort          = ircConfig.port
+//webConfig.externalHost     = config.extWebURL?.host ?? webConfig.host
+//webConfig.externalPort     = config.extWebURL?.port ?? webConfig.port
+//webConfig.autoJoinChannels = [ "#NIO", "#SwiftObjects", "#SwiftDE",
+//                               "#LinkerKit" ]
+//webConfig.autoSendMessages = [
+//  ( "Eliza", "Moin" )
+//]
+//
+//let webServer = IRCWebClientServer(configuration: webConfig)
 
 
 // MARK: - Run Servers
@@ -80,17 +80,17 @@ signal(SIGINT) { // Safe? Unsafe. No idea :-)
 }
 
 ircServer.listen()
-webServer.listen()
+//webServer.listen()
 
 
 // MARK: - Run Bots
 
-let elizaConfig = IRCElizaBot.Options(eventLoopGroup: loopGroup)
-elizaConfig.hostname = ircConfig.host ?? "localhost"
-elizaConfig.port     = ircConfig.port
-
-let eliza = IRCElizaBot(options: elizaConfig)
-eliza.connect()
+//let elizaConfig = IRCElizaBot.Options(eventLoopGroup: loopGroup)
+//elizaConfig.hostname = ircConfig.host ?? "localhost"
+//elizaConfig.port     = ircConfig.port
+//
+//let eliza = IRCElizaBot(options: elizaConfig)
+//eliza.connect()
 
 
 // MARK: - Wait on runloop
