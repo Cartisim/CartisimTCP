@@ -82,7 +82,7 @@ open class IRCServer {
     }
     
     open func listen() {
-        let bootstrap = makeBootstrap()
+        let bootstrap = try? makeBootstrap()
         
         do {
             logStartupOnPort(configuration.port)
@@ -107,7 +107,7 @@ open class IRCServer {
             }()
             context = IRCServerContext(origin: origin, logger: logger)
             
-            serverChannel = try bootstrap.bind(to: address)
+            serverChannel = try bootstrap?.bind(to: address)
                 .wait()
             
             
@@ -150,20 +150,27 @@ open class IRCServer {
     
     
     // MARK: - Bootstrap
+    enum ServerErrors: Swift.Error {
+        case nilSSLContext
+    }
     
-    open func makeBootstrap() -> ServerBootstrap {
+    open func makeBootstrap() throws -> ServerBootstrap {
         
+        var sslContext: NIOSSLContext?
         #if !DEBUG
         let basePath = FileManager().currentDirectoryPath
         let certPath = basePath + "/fullchain.pem"
         let keyPath = basePath + "/privkey.pem"
-        
-        let certs = try! NIOSSLCertificate.fromPEMFile(certPath)
+        do {
+        let certs = try NIOSSLCertificate.fromPEMFile(certPath)
             .map { NIOSSLCertificateSource.certificate($0) }
         let tls = TLSConfiguration.makeServerConfiguration(certificateChain: certs, privateKey: .file(keyPath))
-        let sslContext = try? NIOSSLContext(configuration: tls)
+        sslContext = try NIOSSLContext(configuration: tls)
+        } catch {
+            fatalError("Certificate Error: \(error)")
+        }
         #endif
-        
+        guard let ssl = sslContext else { throw ServerErrors.nilSSLContext }
         let reuseAddrOpt = ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),
                                                  SO_REUSEADDR)
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
@@ -182,7 +189,7 @@ open class IRCServer {
                 #if !DEBUG
                 return channel.pipeline
                     .addHandlers([
-                        NIOSSLServerHandler(context: sslContext!),
+                        NIOSSLServerHandler(context: ssl),
                         BackPressureHandler(),
                         IRCChannelHandler(),
                         IRCSessionHandler(context: context),
