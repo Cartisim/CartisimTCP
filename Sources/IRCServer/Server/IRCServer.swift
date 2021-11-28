@@ -169,8 +169,8 @@ open class IRCServer {
         } catch {
             fatalError("Certificate Error: \(error)")
         }
-        #endif
         guard let ssl = sslContext else { throw ServerErrors.nilSSLContext }
+        #endif
         let reuseAddrOpt = ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),
                                                  SO_REUSEADDR)
         let bootstrap = ServerBootstrap(group: eventLoopGroup)

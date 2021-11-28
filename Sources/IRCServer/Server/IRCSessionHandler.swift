@@ -129,7 +129,6 @@ open class IRCSessionHandler : ChannelInboundHandler,
     self.eventLoop = context.channel.eventLoop
     
     assert(state == .initial)
-    
     // TODO:
     // - ident lookup
     // - timeout until nick assignment!
@@ -142,7 +141,6 @@ open class IRCSessionHandler : ChannelInboundHandler,
     for channel in joinedChannels {
       server.partChannel(channel, session: self)
     }
-    
     if let nick = nick {
       do {
         try server.unregisterSession(self, nick: nick)

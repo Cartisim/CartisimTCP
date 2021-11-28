@@ -188,7 +188,7 @@ open class IRCServerContext {
              "attempt to unregister nick of different session \(nick)?")
       return
     }
-    
+    print("Unregistering Nick: \(nick)")
     nickToSession.removeValue(forKey: nick)
   }
 }
