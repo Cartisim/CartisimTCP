@@ -317,6 +317,7 @@ extension IRCSessionHandler : IRCDispatcher {
           
           let message = IRCMessage(origin: sender,
                                    command: .PRIVMSG([ target ], message))
+          print("DO SEND MESSAGE: \(message)")
           targetSession.sendMessage(message)
         
         case .channel(let channelName):
