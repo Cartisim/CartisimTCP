@@ -34,7 +34,7 @@ public extension IRCServerMessageTarget {
   func sendReply(_ code: NIOIRC.IRCCommandCode, _ args: String...) {
     let message = IRCMessage(origin: origin, target: target,
                              command: .numeric(code, args))
-      print("Send Reply: \(arg)")
+      print("Send Reply: \(args)")
       print("Send Reply: \(code)")
       print("Send Reply: \(message)")
     sendMessage(message)
