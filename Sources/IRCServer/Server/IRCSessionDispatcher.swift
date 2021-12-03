@@ -308,6 +308,7 @@ extension IRCSessionHandler : IRCDispatcher {
           sendReply(.errorNoSuchNick, "*", "No such nick/channel")
         
         case .nickname(let nick):
+          print("Do Message: NICK: \(nick)")
           guard let targetSession = server.getSession(of: nick) else {
             sendReply(.errorNoSuchNick, nick.stringValue,
                       "No such nick/channel '\(nick.stringValue)'")
