@@ -174,6 +174,7 @@ open class IRCServerContext {
     guard nickToSession[nick] == nil else {
       throw Error.nicknameInUse(nick)
     }
+      print("Registering Nick: \(nick)")
     nickToSession[nick] = session
   }
 

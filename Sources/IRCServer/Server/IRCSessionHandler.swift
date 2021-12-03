@@ -163,9 +163,9 @@ open class IRCSessionHandler : ChannelInboundHandler,
   // MARK: - Reading
 
   open func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-      print("channel read")
     let message = self.unwrapInboundIn(data)
     do {
+        print("channel read", message)
       try irc_msgSend(message)
     }
     catch let error as IRCServerError {
